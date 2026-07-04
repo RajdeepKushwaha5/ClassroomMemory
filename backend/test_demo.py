@@ -32,6 +32,8 @@ print("students:", [(x["id"], x["avg_weight"], x["gaps"]) for x in s["students"]
 
 g = ok(c.get("/api/student/graph?student=alice"), "graph")
 assert len(g["nodes"]) == 22 and g["next_step"], "graph shape"
+assert g["why_next"] and "frontier" in g["why_next"]["rule"], g.get("why_next")
+assert "session" in g and g["session"]["answers"] == 0, g.get("session")
 reds = sum(1 for n in g["nodes"] if n["band"] == "red")
 print(f"alice: {reds}/22 red, next_step={g['next_step']}")
 assert reds == 22, "alice should start all red"
@@ -65,6 +67,8 @@ for i in range(3):
         break
 print(f"correct-answer progression on '{concept}': 0.2 -> {weights}")
 assert weights[-1] > 0.75, "3 correct answers should reach green"
+g_session = ok(c.get("/api/student/graph?student=alice"), "graph after session")
+assert g_session["session"]["answers"] >= len(weights), g_session["session"]
 
 # wrong answer keeps a red node red
 q2 = ok(c.post("/api/quiz/next", json={"student": "alice"}), "quiz next 2")
@@ -81,6 +85,8 @@ hm = ok(c.get("/api/class/heatmap"), "heatmap")
 rec = next(r for r in hm["concepts"] if r["id"] == "recursion")
 print(f"heatmap: recursion red_pct={rec['red_pct']}%, teach_next={[t['id'] for t in hm['teach_next']]}")
 assert rec["red_pct"] >= 50, "recursion should be a class-wide gap (cara+alice red)"
+assert rec["why"] and "students are red" in rec["why"], rec
+assert "alice" in rec["red_students"], rec["red_students"]
 
 # decay view: cara's old greens go rusty with offset
 gc0 = ok(c.get("/api/student/graph?student=cara&offset_days=0"), "cara now")
@@ -121,6 +127,9 @@ print("class ask:", ca["answer"][:100])
 ar = ok(c.post("/api/teacher/assign-review", json={"concept": "recursion"}), "assign review")
 assert ar["ok"] and ar["assigned_count"] >= 2, ar
 assert {s["student"] for s in ar["students"]} >= {"alice", "bob"}
+assert "heat-map signal" in ar["why"], ar
+after_assign = ok(c.get("/api/student/graph?student=alice"), "graph after assign")
+assert after_assign["assignments"], "student should see assigned review"
 print("assign review:", ar["message"], [(s["student"], s["band"]) for s in ar["students"]])
 
 # enroll a new student (the "working product" feature)
@@ -133,6 +142,12 @@ assert not dup["ok"], "duplicate must be refused"
 bad = ok(c.post("/api/student/add", json={"student": "x!"}), "bad name")
 assert not bad["ok"], "invalid name must be refused"
 print("enroll: judge-one added (22 red), duplicate + bad name refused")
+
+setup = ok(c.post("/api/class/setup", json={"students": ["aditi", "farhan", "alice", "bad name!"]}), "class setup")
+assert setup["ok"] and {"aditi", "farhan"}.issubset(setup["added"]), setup
+assert "alice" in setup["kept"], setup
+assert setup["rejected"], setup
+print("class setup:", setup)
 
 # curriculum import: proves the product is not locked to Python
 sample = {

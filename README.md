@@ -35,6 +35,9 @@ memory layer.
   prerequisite edges. The quiz engine picks your **frontier**: the gap whose
   prerequisites you already hold: by *graph traversal*, not similarity search. That's
   the "not just RAG" difference.
+- **Explainable graph choices.** The student report shows *why* a concept is next:
+  the frontier rule, prerequisite readiness, and the graph chain behind the
+  recommendation. The teacher heat map also shows why a review was selected.
 - **Mastery that moves like memory.** Correct answers push a concept red → amber →
   green on screen, live. Untouched concepts decay to *rusty*. Mastered ones can be
   **retired** (a real `forget()`), and a transfer student is one real dataset deletion.
@@ -48,6 +51,9 @@ memory layer.
   Cognee datasets lazily on first recall.
 - **Teacher intervention workflow.** The heat map is actionable: assign review to every
   student who is red or rusty on a concept, and persist that intervention in SQLite.
+- **Class-sized setup.** A teacher can paste a roster and create many isolated student
+  memories at once. The sample data also includes a believable multi-student classroom,
+  not just three demo accounts.
 
 ## Why Cognee Cloud specifically
 
@@ -62,11 +68,12 @@ memory layer.
 | Capability | Where it runs, for real |
 |---|---|
 | `remember()` | Curriculum seeded into each student's Cloud dataset (one combined-document ingest, once); learning traces written when a concept is mastered, visible as activity in the Cognee Cloud console |
+| `remember(session_id=…)` | Every quiz answer is written to Cognee session memory as fast learning context. This uses Cognee's session-memory model without forcing every attempt into permanent graph memory. |
 | `remember(node_set=…)` | Every write is tagged (`curriculum`, `mastery-trace`): NodeSets become first-class graph nodes inside each student's memory |
-| `recall()` | The student **ask box**: free questions answered from the student's own cloud graph, with dataset provenance (measured ~7s warm) |
+| `recall()` | The student **ask box**: free questions answered from the student's own cloud graph, with dataset provenance (measured ~7s warm); the current learning session is also passed as context when available |
 | **multi-dataset `recall()`** | The teacher's **ask the class** box: ONE recall spanning every student's dataset at once, results labeled per student. This is the cross-student moat running through Cognee itself, not app code |
 | `forget()` | **Retire** a mastered concept; **reset student** = real `forget(dataset=…)` on the tenant (measured ~2s) |
-| `improve()` | **Honesty note:** Cognee Cloud's remote API returned 404 for `improve()` when we verified on 2026-07-04, so mastery re-weighting runs app-layer with the same semantics (`feedback_weight`-style scores per concept, persisted server-side). The provider interface means the day Cloud exposes `improve()`, it drops in without touching the UI. |
+| `improve()` | **Honesty note:** Cognee Cloud's remote API still returns 404 for `improve()` on this tenant (re-probed 2026-07-04), so mastery re-weighting runs app-layer and is persisted server-side. The UI still exposes the improve lifecycle honestly; the provider boundary is ready when Cloud exposes it remotely. |
 
 **No client-side LLM key is needed.** `recall()` answers are generated server-side by
 Cognee Cloud; quiz questions are curated in `curriculum/python.json`, deterministic by
@@ -87,8 +94,13 @@ FastAPI backend: provider pattern
                  sync endpoints on a dedicated event-loop thread
   SQLite ledger  exact mastery weights, enrolled students, seeded datasets,
                  teacher interventions
-        │ cognee SDK
-Cognee Cloud tenant: dataset per student (student_alice, student_bob, student_cara)
+        ├─ SQLite: exact weights, rosters, interventions
+        │
+        └─ cognee SDK
+Cognee Cloud tenant:
+  dataset per student (student_alice, student_bob, student_cara, ...)
+  session memory for quiz attempts
+  class_interventions dataset for teacher-assigned reviews
 ```
 
 ## Product readiness
@@ -104,15 +116,33 @@ This is designed as a working pilot, not just a staged hackathon clip.
   teacher interventions.
 - **Actionable teacher loop:** the teacher can assign review to everyone red or rusty
   on a concept; the assignment is persisted and can be shown in the product demo.
+- **Append-only agent safety:** normal AI-facing flows can remember, recall, and
+  confirm learning; destructive full wipes are not exposed as autonomous agent tools.
+  Dataset reset remains a deliberate human action in the UI.
 - **Deterministic fallback:** `CLASSROOM_MODE=demo` runs the exact same UI offline, so
   teachers and judges can try the product without cloud credentials.
 - **Cloud-verifiable:** `backend/verify_cloud.py` asserts `serve()`, `remember()`,
   `recall()` with dataset provenance, multi-dataset recall, `forget()`, and the product
   quiz arc.
+- **Graph-extraction-aware seeding:** the memory seed is written for the knowledge
+  graph, not just for reading. An identity sentence anchors each student as an
+  entity in their own memory ("this is the personal learning memory of alice"),
+  and every prerequisite is stated as an explicit relationship sentence, because
+  GraphRAG quality follows relationship-rich input.
 - **Production path:** move the SQLite mastery ledger to managed Postgres if
   multi-school scale requires it, add school auth/RBAC, add richer
-  curriculum authoring, and wire native Cloud `improve()` when the remote endpoint is
+  curriculum authoring, an MCP server so coding agents and tutors can query the
+  class memory directly, and native Cloud `improve()` when the remote endpoint is
   exposed.
+
+## Why memory + education is the right bet
+
+This is not a speculative pairing. Cognee's own team has described working with
+the University of Wyoming on individualized education plans (IEPs), where feeding
+prior context back into the planning flow measurably increased successful plan
+creation. Education is memory work: what a learner already knows is the context
+every next decision needs. Classroom Memory applies that same thesis at the
+classroom level, with one hosted memory per student.
 
 ## Run it
 

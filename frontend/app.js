@@ -234,13 +234,20 @@ function showConceptDetail(nodeId) {
 }
 
 function renderMemoryContents(g) {
-  const seeded = (state.health && state.health.seeded || []).includes(state.student);
+  const health = state.health || {};
+  const seededStudents = health.seeded_students || health.seeded || [];
+  const seeded = seededStudents.includes(state.student);
+  const domainPrefix = health.domain && health.domain !== "python"
+    ? `${health.domain}_`
+    : "";
   const traces = g.nodes.filter((n) => n.band === "green" || n.retired);
+  const session = g.session || {};
   const lines = [
-    `dataset: student_${state.student}`,
+    `dataset: student_${domainPrefix}${state.student}`,
     seeded
       ? `curriculum seed: written (one ${g.nodes.length}-concept document, node_set: curriculum)`
       : `curriculum seed: created on this student's first question`,
+    `session memory: ${session.answers || 0} quiz event(s) remembered for this learning session`,
   ];
   if (traces.length) {
     lines.push(`mastery traces written with remember():`);
@@ -331,9 +338,21 @@ async function loadStudentGraph() {
   $("#mb-rusty").textContent = rusty;
 
   const next = g.next_step ? g.nodes.find((n) => n.id === g.next_step) : null;
-  $("#next-step").textContent = next
-    ? `${next.name}\n${next.summary}`
-    : "all frontier concepts mastered.";
+  const why = g.why_next;
+  if (next && why) {
+    const chain = why.graph_chain && why.graph_chain.length
+      ? why.graph_chain.join(" -> ")
+      : next.name;
+    const prereqs = why.prerequisites && why.prerequisites.length
+      ? why.prerequisites.map((p) =>
+          `${p.name}: ${(p.weight * 100).toFixed(0)}% ${p.ready ? "ready" : "blocked"}`
+        ).join("\n")
+      : "no prerequisites: start here";
+    $("#next-step").textContent =
+      `${next.name}\n${next.summary}\n\nwhy this next:\n${why.rule}\n\nchain:\n${chain}\n\nprerequisites:\n${prereqs}`;
+  } else {
+    $("#next-step").textContent = "all frontier concepts mastered.";
+  }
   $("#clock-label").textContent = state.offsetDays ? `+${state.offsetDays}d` : "today";
 
   // teacher-assigned reviews, with the graph explaining what unlocks them
@@ -479,7 +498,10 @@ async function loadTeacher() {
   tn.innerHTML = "";
   (hm.teach_next.length ? hm.teach_next : hm.concepts.slice(0, 3)).forEach((c) => {
     const li = document.createElement("li");
-    li.innerHTML = `<div class="teach-next-row"><span><span class="pct">${c.red_pct}% red</span> · ${c.name}</span>` +
+    const redNames = (c.red_students || []).slice(0, 4).join(", ");
+    const reason = c.why || `${c.red_pct}% of the class is red`;
+    li.innerHTML = `<div class="teach-next-row"><span><span class="pct">${c.red_pct}% red</span> · ${c.name}` +
+      `<small>${escapeHtml(reason)}${redNames ? ` Red: ${escapeHtml(redNames)}.` : ""}</small></span>` +
       `<button class="assign-review" data-concept="${c.id}">assign</button></div>`;
     tn.appendChild(li);
   });
@@ -533,7 +555,8 @@ async function assignReview(concept) {
       ? `<ul>${students.map((s) => `<li>${escapeHtml(s.student)} · ${escapeHtml(s.band)} · ${(s.weight * 100).toFixed(0)}%</li>`).join("")}</ul>`
       : "<span>No red or rusty students for this concept right now.</span>";
     card.innerHTML = `<b>${escapeHtml(res.message)}</b>` +
-      `<span>Intervention ${res.intervention ? "#" + res.intervention.id : "created"} · ${escapeHtml(res.concept_name)}</span>${list}`;
+      `<span>Intervention ${res.intervention ? "#" + res.intervention.id : "created"} · ${escapeHtml(res.concept_name)}</span>` +
+      `<span>${escapeHtml(res.why || "Heat-map signal converted into a review list.")}</span>${list}`;
     if (res.assigned_count > 0) {
       $("#class-ask-input").value = `why is ${res.concept_name} the next review?`;
     }

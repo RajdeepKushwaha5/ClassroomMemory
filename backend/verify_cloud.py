@@ -5,9 +5,11 @@
 Asserts, against the tenant in .env:
   1. serve() : auth + connection
   2. remember(): real ingestion into an isolated verification dataset
-  3. recall(): a correct graph-completion answer WITH dataset provenance
-  4. forget(): the dataset is really deleted
-  5. the app's CloudProvider quiz arc: mastery red->green + persisted state
+  3. remember(session_id=...): quiz-like session memory write is accepted
+  4. recall(): a correct graph-completion answer WITH dataset provenance
+  5. multi-dataset recall(): the teacher ask-the-class mechanism
+  6. forget(): the dataset is really deleted
+  7. the app's product arc: mastery red->green + teacher heatmap
 Exits non-zero on any failure. Never prints secrets.
 """
 import asyncio
@@ -69,6 +71,17 @@ async def verify_lifecycle():
           f"{time.time()-t0:.1f}s · {text[:80]!r}")
     check("recall() carries dataset provenance", first.get("dataset_name") == ds,
           f"dataset_name={first.get('dataset_name')!r}")
+
+    session_id = "verify_classroom_session"
+    t0 = time.time()
+    await cognee.remember(
+        "Session event: Alice struggled with recursion after loops practice.",
+        dataset_name=ds,
+        session_id=session_id,
+        self_improvement=False)
+    check("remember(session_id=...) accepts quiz-session memory",
+          True,
+          f"{time.time()-t0:.1f}s")
 
     # multi-dataset recall: the mechanism behind the teacher's "ask the class"
     ds_b = "verify_classroom_b"
@@ -138,6 +151,8 @@ def verify_app_arc():
     rec = next(r for r in hm["concepts"] if r["id"] == "recursion")
     check("teacher heatmap flags class-wide gap", rec["red_pct"] >= 50,
           f"recursion {rec['red_pct']}% red")
+    check("frontier explanation is returned", bool(g.get("why_next")),
+          g.get("why_next", {}).get("rule", ""))
 
 
 if __name__ == "__main__":

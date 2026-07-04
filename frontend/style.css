@@ -3104,6 +3104,14 @@ h4,
 
 /* ---------- architecture data-flow diagram + teacher graph repair ---------- */
 
+.teach-next-row small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .premium-diagram {
   border: 1px solid var(--line);
   background:
@@ -3544,3 +3552,28 @@ h4,
   outline: 0;
 }
 .enroll-form textarea:focus { border-color: var(--accent); }
+
+/* ---------- long-form recall answers: prose, not Track A headline style ---------- */
+
+#ask-answer,
+#class-ask-answer {
+  min-height: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 16px 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  font-weight: 500;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+#ask-answer b,
+#class-ask-answer b { color: var(--accent); font-weight: 800; }
+
+#ask-answer code,
+#class-ask-answer code { font-size: 12.5px; }
+
+/* columns keep their own height; one long card must not stretch its neighbors */
+.workbench.two .case-column,
+.workbench.two .graph-column { align-self: start; }

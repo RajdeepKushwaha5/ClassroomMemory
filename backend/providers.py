@@ -292,6 +292,33 @@ class DemoProvider(ClassroomProvider):
                 })
         return out
 
+    def _student_session_id(self, student: str) -> str:
+        session = self._sessions.setdefault(student, {"id": str(uuid.uuid4()), "answers": []})
+        return session["id"]
+
+    def _why_next(self, student: str, concept: str | None) -> dict | None:
+        if not concept:
+            return None
+        state = self._require(student)
+        c = self.concepts[concept]
+        prereqs = []
+        for req in c["requires"]:
+            view = self._view_concept(req, state[req], 0)
+            prereqs.append({
+                "id": req,
+                "name": view["name"],
+                "weight": view["weight"],
+                "band": view["band"],
+                "ready": view["weight"] >= RED_MAX,
+            })
+        return {
+            "concept": concept,
+            "name": c["name"],
+            "rule": "frontier = not mastered, not retired, and every prerequisite is at least amber",
+            "prerequisites": prereqs,
+            "graph_chain": [p["name"] for p in prereqs] + [c["name"]],
+        }
+
     def student_graph(self, student: str, offset_days: int = 0) -> dict:
         state = self._require(student)
         nodes = [self._view_concept(cid, rec, offset_days) for cid, rec in state.items()]
@@ -300,13 +327,20 @@ class DemoProvider(ClassroomProvider):
             for cid, c in self.concepts.items() for req in c["requires"]
         ]
         frontier = self._frontier(student)
+        next_step = frontier[0] if frontier else None
+        session = self._sessions.get(student, {"id": None, "answers": []})
         return {
             "student": student,
             "nodes": nodes,
             "edges": edges,
             "frontier": frontier,
-            "next_step": frontier[0] if frontier else None,
+            "next_step": next_step,
+            "why_next": self._why_next(student, next_step),
             "assignments": self._open_assignments(student),
+            "session": {
+                "id": session.get("id"),
+                "answers": len(session.get("answers", [])),
+            },
         }
 
     # ---------- frontier + quiz ----------
@@ -401,6 +435,14 @@ class DemoProvider(ClassroomProvider):
                 "amber_pct": round(100 * ambers / n),
                 "green_pct": round(100 * greens / n),
                 "avg_weight": round(sum(v["weight"] for v in views) / n, 3),
+                "red_students": [
+                    sid for sid, state in sorted(self._states.items())
+                    if band(state[cid]["weight"]) == "red"
+                ],
+                "why": (
+                    f"{reds}/{n} students are red on {c['name']}; "
+                    f"avg mastery {round(100 * sum(v['weight'] for v in views) / n)}%."
+                ),
             })
         rows.sort(key=lambda r: (-r["red_pct"], r["avg_weight"]))
         teach_next = [r for r in rows if r["red_pct"] >= 50][:3]
@@ -512,6 +554,10 @@ class DemoProvider(ClassroomProvider):
             "concept_name": c["name"],
             "assigned_count": len(assignments),
             "students": assignments,
+            "why": (
+                f"Assigned because {len(assignments)} student(s) are red or rusty on "
+                f"{c['name']}; this turns a heat-map signal into an action list."
+            ),
             "message": f"Assigned {c['name']} review to {len(assignments)} student(s).",
         }
 
@@ -661,11 +707,28 @@ class CloudProvider(DemoProvider):
         safe_domain = re.sub(r"[^a-z0-9_-]", "_", domain.lower())
         return f"student_{safe_domain}_{student}"
 
-    def _curriculum_doc(self) -> str:
-        lines = [f"{self.curriculum['title']}: course concepts:"]
+    def _curriculum_doc(self, student: str) -> str:
+        """Seed document written for graph extraction, not just reading:
+        an identity sentence anchors the student as an entity (so recall can
+        answer 'tell me about alice'), and every prerequisite is stated as an
+        explicit relationship sentence so entity/edge extraction has clean
+        material to work with (per Cognee's own guidance: GraphRAG quality
+        follows relationship-rich input)."""
+        title = self.curriculum["title"]
+        lines = [
+            f"This is the personal learning memory of the student named {student}. "
+            f"{student} is studying the course '{title}'. {student} answers quiz "
+            f"questions, masters concepts one by one, and can ask this memory "
+            f"questions about the course.",
+            f"The course '{title}' is a prerequisite graph of "
+            f"{len(self.concepts)} concepts:",
+        ]
         for c in self.curriculum["concepts"]:
-            req = f" Requires: {', '.join(c['requires'])}." if c["requires"] else ""
-            lines.append(f"{c['name']}: {c['summary']}{req}")
+            line = f"The concept '{c['name']}' means: {c['summary']}"
+            if c["requires"]:
+                names = ", ".join(self.concepts[r]["name"] for r in c["requires"])
+                line += f" Learning '{c['name']}' requires first understanding: {names}."
+            lines.append(line)
         return "\n".join(lines)
 
     def ensure_seeded(self, student: str):
@@ -673,10 +736,21 @@ class CloudProvider(DemoProvider):
         dataset = self._dataset(student)
         if not self._connected or dataset in self._seeded:
             return
-        # node_set tags become first-class NodeSet graph nodes (probed OK 2026-07-04)
-        self._call(self._cognee.remember(
-            self._curriculum_doc(), dataset_name=dataset,
-            node_set=["curriculum", self.curriculum["domain"]]), timeout=120)
+        # node_set tags become first-class NodeSet graph nodes (probed OK 2026-07-04).
+        # Retry on 409: after forget(dataset), the tenant deletes asynchronously and
+        # an immediate re-remember into the same name conflicts until it finishes
+        # (observed live 2026-07-05: reset -> ask raced exactly this way).
+        for attempt in range(3):
+            try:
+                self._call(self._cognee.remember(
+                    self._curriculum_doc(student), dataset_name=dataset,
+                    node_set=["curriculum", self.curriculum["domain"]]), timeout=120)
+                break
+            except Exception as err:
+                if "409" in str(err) and attempt < 2:
+                    time.sleep(8)
+                    continue
+                raise
         self._seeded.add(dataset)
         self._ledger.mark_seeded(dataset, student, self.curriculum["domain"])
 
@@ -684,9 +758,14 @@ class CloudProvider(DemoProvider):
 
     def health(self) -> dict:
         base = super().health()
+        seeded_students = sorted(
+            sid for sid in self._states
+            if self._dataset(sid) in self._seeded
+        )
         base.update(mode="cloud", cloud_connected=self._connected,
                     tenant=self._url.split("//")[-1].split(".")[0],
                     seeded=sorted(d.replace("student_", "") for d in self._seeded),
+                    seeded_students=seeded_students,
                     ledger=str(self.LEDGER_PATH.name))
         return base
 
@@ -696,7 +775,10 @@ class CloudProvider(DemoProvider):
             try:
                 self.ensure_seeded(student)
                 res = self._call(self._cognee.recall(
-                    question, datasets=[self._dataset(student)]), timeout=45)
+                    question,
+                    datasets=[self._dataset(student)],
+                    session_id=self._student_session_id(student),
+                    include_references=True), timeout=45)
                 items = res if isinstance(res, list) else [res]
                 text = next((str(i.get("text")) for i in items
                              if isinstance(i, dict) and i.get("text")), None)
@@ -714,6 +796,15 @@ class CloudProvider(DemoProvider):
     def quiz_answer(self, student: str, concept: str, answer_index: int) -> dict:
         res = super().quiz_answer(student, concept, answer_index)
         self._save_state()
+        if self._connected:
+            session_id = self._student_session_id(student)
+            self._fire_and_forget(self._cognee.remember(
+                f"{student} answered a quiz question on '{res['concept']['name']}'. "
+                f"Correct={res['correct']}. Mastery moved from "
+                f"{res['weight_before']:.2f} to {res['weight_after']:.2f}.",
+                dataset_name=self._dataset(student),
+                session_id=session_id,
+                self_improvement=False))
         # When a concept crosses into green, write a real learning trace to the
         # student's Cloud dataset (visible in the Cognee Cloud console: demo beat).
         if self._connected and res["concept"]["band"] == "green" and res["correct"]:
