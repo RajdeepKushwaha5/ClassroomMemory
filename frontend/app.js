@@ -15,6 +15,7 @@ const state = {
   teacherDrill: null,
   health: null,
   teacherHeatmap: null,
+  lastStudentGraph: null,
 };
 
 let activeMaximized = null;
@@ -156,7 +157,7 @@ function nodeStyle(n) {
   };
 }
 
-function renderGraph(el, current, payload) {
+function renderGraph(el, current, payload, opts = {}) {
   const nodes = payload.nodes.map(nodeStyle);
   const edges = payload.edges.map((e) => ({
     from: e.from, to: e.to,
@@ -200,7 +201,55 @@ function renderGraph(el, current, payload) {
       }
     }).observe(el);
   }
+  if (opts.onClick) net.on("click", opts.onClick);
   return net;
+}
+
+/* ---------- concept inspector + cloud memory contents (transparency) ---------- */
+
+function showConceptDetail(nodeId) {
+  const g = state.lastStudentGraph;
+  if (!g) return;
+  const n = g.nodes.find((x) => x.id === nodeId);
+  if (!n) return;
+  const reqs = n.requires.length
+    ? n.requires.map((r) => {
+        const p = g.nodes.find((x) => x.id === r);
+        return p ? `${p.name} (${(p.weight * 100).toFixed(0)}%)` : r;
+      }).join(", ")
+    : "none: a starting concept";
+  const lines = [
+    `${n.name}`,
+    `${n.summary}`,
+    ``,
+    `mastery: ${(n.weight * 100).toFixed(0)}% (${n.retired ? "retired" : n.rusty ? "rusty" : n.band})`,
+    `prerequisites: ${reqs}`,
+    `last practiced: ${n.age_days < 1 ? "today" : n.age_days.toFixed(0) + " days ago"}`,
+  ];
+  if (n.band === "green") {
+    lines.push(`cloud memory: a mastery trace was written with remember()`);
+  }
+  $("#node-detail").textContent = lines.join("\n");
+  $("#node-detail-card").classList.remove("hidden");
+}
+
+function renderMemoryContents(g) {
+  const seeded = (state.health && state.health.seeded || []).includes(state.student);
+  const traces = g.nodes.filter((n) => n.band === "green" || n.retired);
+  const lines = [
+    `dataset: student_${state.student}`,
+    seeded
+      ? `curriculum seed: written (one ${g.nodes.length}-concept document, node_set: curriculum)`
+      : `curriculum seed: created on this student's first question`,
+  ];
+  if (traces.length) {
+    lines.push(`mastery traces written with remember():`);
+    traces.forEach((n) => lines.push(`  - ${n.name}${n.retired ? " (retired)" : ""}`));
+  } else {
+    lines.push(`mastery traces: none yet. master a concept to write one.`);
+  }
+  lines.push(``, `the ask box recall() reads exactly this memory.`);
+  $("#memory-contents").textContent = lines.join("\n");
 }
 
 /* ---------- cockpit ---------- */
@@ -253,7 +302,13 @@ async function loadStudents() {
 
 async function loadStudentGraph() {
   const g = await api(`/api/student/graph?student=${state.student}&offset_days=${state.offsetDays}`);
-  state.studentNet = renderGraph($("#graph"), state.studentNet, g);
+  state.lastStudentGraph = g;
+  state.studentNet = renderGraph($("#graph"), state.studentNet, g, {
+    onClick: (params) => {
+      if (params.nodes && params.nodes.length) showConceptDetail(params.nodes[0]);
+    },
+  });
+  renderMemoryContents(g);
 
   const bands = { red: 0, amber: 0, green: 0 };
   let rusty = 0;
@@ -644,6 +699,7 @@ async function init() {
 
     $("#retire-btn").onclick = retireMastered;
     $("#reset-btn").onclick = resetStudent;
+    $("#node-detail-close").onclick = () => $("#node-detail-card").classList.add("hidden");
   });
 
   safely("lifecycle-strip", () => {
