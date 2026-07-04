@@ -737,18 +737,20 @@ class CloudProvider(DemoProvider):
         if not self._connected or dataset in self._seeded:
             return
         # node_set tags become first-class NodeSet graph nodes (probed OK 2026-07-04).
-        # Retry on 409: after forget(dataset), the tenant deletes asynchronously and
-        # an immediate re-remember into the same name conflicts until it finishes
-        # (observed live 2026-07-05: reset -> ask raced exactly this way).
-        for attempt in range(3):
+        # Retry on 409 with progressive backoff: after forget(dataset), the tenant
+        # deletes asynchronously and re-remember into the same name conflicts until
+        # the delete settles, which we observed live to take MINUTES, not seconds
+        # (2026-07-05: two reset->reseed attempts raced exactly this way).
+        backoffs = [10, 30, 60, 90]
+        for attempt, wait in enumerate(backoffs + [0]):
             try:
                 self._call(self._cognee.remember(
                     self._curriculum_doc(student), dataset_name=dataset,
                     node_set=["curriculum", self.curriculum["domain"]]), timeout=120)
                 break
             except Exception as err:
-                if "409" in str(err) and attempt < 2:
-                    time.sleep(8)
+                if "409" in str(err) and attempt < len(backoffs):
+                    time.sleep(wait)
                     continue
                 raise
         self._seeded.add(dataset)
