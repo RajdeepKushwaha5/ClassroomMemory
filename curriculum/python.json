@@ -1,0 +1,231 @@
+{
+  "domain": "python",
+  "title": "Python fundamentals → async",
+  "concepts": [
+    {
+      "id": "variables",
+      "name": "Variables & assignment",
+      "summary": "Names bound to objects; Python variables are references, not boxes.",
+      "requires": [],
+      "questions": [
+        {"q": "After `a = [1]; b = a; b.append(2)`, what is `a`?", "options": ["[1]", "[1, 2]", "[2]", "error"], "answer": 1},
+        {"q": "Which is a valid Python variable name?", "options": ["2nd_place", "my-var", "_count", "class"], "answer": 2},
+        {"q": "What does `x, y = y, x` do?", "options": ["raises SyntaxError", "swaps x and y", "makes a tuple named xy", "copies y into x only"], "answer": 1}
+      ]
+    },
+    {
+      "id": "data-types",
+      "name": "Core data types",
+      "summary": "int, float, str, bool, None; mutability is the key distinction.",
+      "requires": ["variables"],
+      "questions": [
+        {"q": "Which of these is immutable?", "options": ["list", "dict", "tuple", "set"], "answer": 2},
+        {"q": "What is `type(3 / 1)`?", "options": ["int", "float", "Decimal", "str"], "answer": 1},
+        {"q": "What does `bool(\"\")` return?", "options": ["True", "False", "None", "error"], "answer": 1}
+      ]
+    },
+    {
+      "id": "strings",
+      "name": "Strings",
+      "summary": "Immutable text sequences; slicing, methods, f-strings.",
+      "requires": ["data-types"],
+      "questions": [
+        {"q": "What is `\"hello\"[1:3]`?", "options": ["\"he\"", "\"el\"", "\"ell\"", "\"lo\""], "answer": 1},
+        {"q": "Which formats a variable `n` into a string?", "options": ["f\"{n}\"", "\"%n\"", "str+n", "format(n) inside quotes"], "answer": 0}
+      ]
+    },
+    {
+      "id": "lists",
+      "name": "Lists",
+      "summary": "Mutable ordered sequences; append/extend, slicing, in-place ops.",
+      "requires": ["data-types"],
+      "questions": [
+        {"q": "What does `[1, 2] + [3]` produce?", "options": ["[1, 2, 3]", "[4, 2]", "error", "[1, 2, [3]]"], "answer": 0},
+        {"q": "`lst.append([4, 5])` adds how many elements?", "options": ["2", "1 (the list itself)", "0", "depends on lst"], "answer": 1}
+      ]
+    },
+    {
+      "id": "dicts",
+      "name": "Dictionaries",
+      "summary": "Key-value mappings; hashable keys, .get, iteration order is insertion order.",
+      "requires": ["data-types"],
+      "questions": [
+        {"q": "What does `d.get(\"missing\")` return if the key is absent?", "options": ["KeyError", "None", "False", "\"\""], "answer": 1},
+        {"q": "Which can be a dict key?", "options": ["list", "dict", "tuple of ints", "set"], "answer": 2}
+      ]
+    },
+    {
+      "id": "conditionals",
+      "name": "Conditionals",
+      "summary": "if/elif/else and truthiness of values.",
+      "requires": ["variables"],
+      "questions": [
+        {"q": "Which values are falsy?", "options": ["0, \"\", [], None", "0 only", "None only", "\"false\" and 0"], "answer": 0},
+        {"q": "What is `\"yes\" if [] else \"no\"`?", "options": ["\"yes\"", "\"no\"", "[]", "error"], "answer": 1}
+      ]
+    },
+    {
+      "id": "loops",
+      "name": "Loops",
+      "summary": "for/while, range, enumerate, break/continue/else.",
+      "requires": ["conditionals", "lists"],
+      "questions": [
+        {"q": "What does `enumerate([\"a\",\"b\"])` yield first?", "options": ["\"a\"", "(0, \"a\")", "(1, \"a\")", "[0, \"a\"] as a list"], "answer": 1},
+        {"q": "A loop's `else` block runs when…", "options": ["the loop body raised", "break was hit", "the loop finished without break", "never; it's invalid"], "answer": 2}
+      ]
+    },
+    {
+      "id": "functions",
+      "name": "Functions",
+      "summary": "def, arguments, return, default/keyword args; functions are objects.",
+      "requires": ["variables"],
+      "questions": [
+        {"q": "What does a function without `return` return?", "options": ["0", "\"\"", "None", "error"], "answer": 2},
+        {"q": "Why is `def f(x, acc=[])` dangerous?", "options": ["lists can't be defaults", "the default list is shared across calls", "acc becomes global", "it isn't dangerous"], "answer": 1},
+        {"q": "`f(*args)` in a call does what?", "options": ["multiplies args", "unpacks a sequence into positional args", "passes args by reference", "makes args optional"], "answer": 1}
+      ]
+    },
+    {
+      "id": "scope",
+      "name": "Scope & namespaces",
+      "summary": "LEGB rule; local vs global; the `nonlocal` and `global` keywords.",
+      "requires": ["functions"],
+      "questions": [
+        {"q": "Assigning to a name inside a function makes it…", "options": ["global", "local by default", "nonlocal", "a constant"], "answer": 1},
+        {"q": "Which keyword lets an inner function rebind its enclosing function's variable?", "options": ["global", "outer", "nonlocal", "static"], "answer": 2}
+      ]
+    },
+    {
+      "id": "closures",
+      "name": "Closures",
+      "summary": "Inner functions capturing enclosing variables; late binding.",
+      "requires": ["scope"],
+      "questions": [
+        {"q": "A closure is…", "options": ["a lambda", "a function bundled with captured enclosing variables", "a class method", "any nested def"], "answer": 1},
+        {"q": "`[lambda: i for i in range(3)]` — calling each returns…", "options": ["0,1,2", "2,2,2 (late binding)", "0,0,0", "error"], "answer": 1}
+      ]
+    },
+    {
+      "id": "decorators",
+      "name": "Decorators",
+      "summary": "Functions that wrap functions; @syntax; functools.wraps.",
+      "requires": ["closures", "functions"],
+      "questions": [
+        {"q": "`@deco` above `def f` is equivalent to…", "options": ["f = deco(f)", "deco = f(deco)", "f.deco()", "importing deco"], "answer": 0},
+        {"q": "`functools.wraps` is used to…", "options": ["speed up wrappers", "preserve the wrapped function's name/docstring", "make wrappers async", "cache results"], "answer": 1}
+      ]
+    },
+    {
+      "id": "comprehensions",
+      "name": "Comprehensions",
+      "summary": "List/dict/set comprehensions and generator expressions.",
+      "requires": ["loops", "lists"],
+      "questions": [
+        {"q": "`[x*x for x in range(3)]` is…", "options": ["[0, 1, 4]", "[1, 4, 9]", "(0, 1, 4)", "a generator"], "answer": 0},
+        {"q": "`(x for x in data)` produces…", "options": ["a tuple", "a list", "a generator expression", "a set"], "answer": 2}
+      ]
+    },
+    {
+      "id": "exceptions",
+      "name": "Exceptions",
+      "summary": "try/except/else/finally; raising; exception hierarchy.",
+      "requires": ["functions"],
+      "questions": [
+        {"q": "`finally` runs…", "options": ["only on success", "only on error", "always", "only if except matched"], "answer": 2},
+        {"q": "Catching `Exception` misses…", "options": ["ValueError", "KeyError", "KeyboardInterrupt", "TypeError"], "answer": 2}
+      ]
+    },
+    {
+      "id": "recursion",
+      "name": "Recursion",
+      "summary": "Functions calling themselves; base cases; call-stack limits.",
+      "requires": ["functions", "conditionals"],
+      "questions": [
+        {"q": "Every correct recursive function needs…", "options": ["a loop", "a base case", "a decorator", "global state"], "answer": 1},
+        {"q": "Unbounded recursion in Python raises…", "options": ["MemoryError", "RecursionError", "StackOverflow", "SystemExit"], "answer": 1},
+        {"q": "`fact(n) = n * fact(n-1)` is missing…", "options": ["nothing", "the n == 0 base case", "a return", "type hints"], "answer": 1}
+      ]
+    },
+    {
+      "id": "classes",
+      "name": "Classes & objects",
+      "summary": "class, __init__, self, attributes, methods, inheritance basics.",
+      "requires": ["functions"],
+      "questions": [
+        {"q": "`self` is…", "options": ["a keyword", "the instance, passed explicitly", "the class object", "optional syntax sugar"], "answer": 1},
+        {"q": "Class attributes are shared…", "options": ["never", "across all instances", "only in subclasses", "only if immutable"], "answer": 1}
+      ]
+    },
+    {
+      "id": "dunder-methods",
+      "name": "Dunder methods",
+      "summary": "__repr__, __eq__, __len__ and protocol-based design.",
+      "requires": ["classes"],
+      "questions": [
+        {"q": "`len(obj)` calls…", "options": ["obj.length()", "obj.__len__()", "obj.size", "list(obj)"], "answer": 1},
+        {"q": "Defining `__eq__` without `__hash__` makes instances…", "options": ["faster", "unhashable", "singletons", "comparable to ints"], "answer": 1}
+      ]
+    },
+    {
+      "id": "iterators",
+      "name": "Iterators & iterables",
+      "summary": "__iter__/__next__ protocol; StopIteration; iter() and next().",
+      "requires": ["classes", "loops"],
+      "questions": [
+        {"q": "An iterator must define…", "options": ["__iter__ and __next__", "__getitem__ only", "__loop__", "yield"], "answer": 0},
+        {"q": "A for-loop stops when the iterator raises…", "options": ["IndexError", "StopIteration", "EOFError", "ValueError"], "answer": 1}
+      ]
+    },
+    {
+      "id": "generators",
+      "name": "Generators",
+      "summary": "yield-based lazy iterators; generator state; send/close.",
+      "requires": ["iterators", "functions"],
+      "questions": [
+        {"q": "A function containing `yield` returns…", "options": ["the yielded value", "a generator object", "a list", "None"], "answer": 1},
+        {"q": "Generators are memory-efficient because…", "options": ["they compress data", "they produce values lazily, one at a time", "they run in C", "they cache everything"], "answer": 1}
+      ]
+    },
+    {
+      "id": "context-managers",
+      "name": "Context managers",
+      "summary": "with-statement; __enter__/__exit__; contextlib.",
+      "requires": ["classes", "exceptions"],
+      "questions": [
+        {"q": "`with open(f) as fh:` guarantees…", "options": ["the file exists", "fh is closed on exit, even on error", "reads are buffered", "fh is reopened each loop"], "answer": 1},
+        {"q": "A context manager class implements…", "options": ["__open__/__close__", "__enter__/__exit__", "__with__", "__ctx__"], "answer": 1}
+      ]
+    },
+    {
+      "id": "concurrency-basics",
+      "name": "Concurrency basics",
+      "summary": "Threads vs processes vs async; the GIL; IO-bound vs CPU-bound.",
+      "requires": ["functions"],
+      "questions": [
+        {"q": "The GIL means CPython threads…", "options": ["can't exist", "don't run Python bytecode truly in parallel", "are faster than processes", "share no memory"], "answer": 1},
+        {"q": "Async shines for workloads that are…", "options": ["CPU-bound", "IO-bound", "memory-bound", "GPU-bound"], "answer": 1}
+      ]
+    },
+    {
+      "id": "async-await",
+      "name": "async / await",
+      "summary": "Coroutines, awaitables, the event loop model.",
+      "requires": ["generators", "concurrency-basics"],
+      "questions": [
+        {"q": "Calling `async def f()` without await returns…", "options": ["the result", "a coroutine object", "None", "error"], "answer": 1},
+        {"q": "`await` may only appear inside…", "options": ["any function", "async def functions", "lambdas", "classes"], "answer": 1},
+        {"q": "Blocking calls (e.g. time.sleep) inside a coroutine…", "options": ["are fine", "block the whole event loop", "run in a thread automatically", "raise SyntaxError"], "answer": 1}
+      ]
+    },
+    {
+      "id": "asyncio-tasks",
+      "name": "asyncio tasks",
+      "summary": "create_task, gather, cancellation, running the loop.",
+      "requires": ["async-await"],
+      "questions": [
+        {"q": "`asyncio.gather(a(), b())` does what?", "options": ["runs them sequentially", "runs them concurrently and collects results", "picks the faster one", "spawns processes"], "answer": 1},
+        {"q": "`asyncio.create_task(coro)`…", "options": ["blocks until done", "schedules the coroutine to run concurrently", "runs it in a thread", "compiles it"], "answer": 1}
+      ]
+    }
+  ]
+}

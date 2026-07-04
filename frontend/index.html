@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classroom Memory - a school that remembers</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="#app" data-view="app" aria-label="Classroom Memory home">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span>
+          <b>Classroom Memory</b>
+          <small>Cognee Cloud mastery graphs</small>
+        </span>
+      </a>
+
+      <nav class="navlinks" aria-label="Primary">
+        <a href="#app" data-view="app" class="active">student</a>
+        <a href="#teacher" data-view="teacher">teacher</a>
+        <a href="#about" data-view="about">about</a>
+      </nav>
+
+      <div class="header-actions">
+        <button id="decay-btn" class="nav-button" title="Virtually age the memory"><i
+            data-lucide="fast-forward"></i><span>age +30d</span></button>
+        <span id="mode-badge" class="status-pill" title="Memory backend">connecting</span>
+        <button id="theme-toggle" class="nav-button icon-only" title="Toggle theme"><i data-lucide="moon"></i></button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ======================= STUDENT CONSOLE ======================= -->
+      <section id="app-view" class="view active">
+        <section class="hero-grid">
+          <div class="hero-copy">
+            <p class="overline">track b / best use of cognee cloud</p>
+            <h1><span>Every student.</span> <strong>One memory.</strong> <em>A school that remembers.</em></h1>
+            <p class="hero-text">Every learning app forgets you the moment you close the tab. Classroom Memory keeps
+              each student's learning context as an isolated Cognee Cloud memory, quizzes the exact frontier of what
+              they are ready to learn, and shows the teacher where the whole class is forgetting. It is a working
+              product spine: enroll students, teach, recall, reset, and verify the cloud lifecycle end to end.</p>
+            <div class="hero-actions">
+              <button id="hero-start" class="primary-btn"><span>start a quiz</span><i
+                  data-lucide="arrow-right"></i></button>
+              <button id="hero-about" class="outline-btn" data-view="about"><span>read about</span></button>
+            </div>
+          </div>
+
+          <aside class="system-card">
+            <div class="window-bar">
+              <span><i class="dot blue"></i>class cockpit</span>
+              <span class="student-pick">
+                <button id="curriculum-btn" class="text-action">+ curriculum</button>
+                <button id="enroll-btn" class="text-action">+ enroll</button>
+                <button id="refresh-cockpit" class="text-action">refresh</button>
+              </span>
+            </div>
+            <div class="cockpit-grid">
+              <div>
+                <small>memory backend</small>
+                <b id="ck-backend">--</b>
+              </div>
+              <div>
+                <small>curriculum</small>
+                <b id="ck-domain">--</b>
+              </div>
+              <div>
+                <small>concepts</small>
+                <b id="ck-concepts">--</b>
+              </div>
+            </div>
+            <div class="storage-strip">
+              <div class="storage-head">
+                <span><i class="dot live"></i>Cognee Cloud memory</span>
+                <small id="ck-tenant">waiting</small>
+              </div>
+              <div class="storage-grid">
+                <div>
+                  <small>datasets</small>
+                  <b>one per student</b>
+                  <span id="ck-seeded">seeded: none yet</span>
+                </div>
+                <div>
+                  <small>lifecycle</small>
+                  <b>remember · recall · forget</b>
+                  <span>live on the tenant</span>
+                </div>
+                <div>
+                  <small>local state</small>
+                  <b>browser: none</b>
+                  <span>server ledger + cloud memory</span>
+                </div>
+              </div>
+            </div>
+            <div id="cockpit-students" class="cockpit-students"></div>
+          </aside>
+        </section>
+
+        <section class="headline-band">
+          <h2><span id="case-kicker">close the laptop.</span> the memory stays.</h2>
+          <p id="case-result">Pick a student and start a quiz. Every answer reshapes their knowledge graph, live.</p>
+        </section>
+
+        <div class="carousel-nav" aria-label="Student console views switcher">
+          <button id="slide-prev" class="carousel-arrow" title="Previous panel"><i
+              data-lucide="chevron-left"></i></button>
+          <div class="carousel-tabs">
+            <button class="carousel-tab active" data-slide="0"><span>01</span> quiz console</button>
+            <button class="carousel-tab" data-slide="1"><span>02</span> mastery graph</button>
+            <button class="carousel-tab" data-slide="2"><span>03</span> student report</button>
+          </div>
+          <button id="slide-next" class="carousel-arrow" title="Next panel"><i
+              data-lucide="chevron-right"></i></button>
+        </div>
+
+        <section class="workbench" id="workbench">
+          <section class="case-column">
+            <div class="health-panel">
+              <div class="section-title">
+                <span id="mastery-label">mastery</span>
+                <div class="panel-title-actions">
+                  <b id="mastery-score">--</b>
+                  <button class="panel-btn maximize-trigger" data-panel="workbench" title="Maximize quiz console"><i
+                      data-lucide="maximize-2"></i></button>
+                </div>
+              </div>
+              <div class="health-bar"><i id="mastery-fill"></i></div>
+              <div class="health-breakdown four">
+                <span><b id="mb-mastered">--</b> mastered</span>
+                <span><b id="mb-learning">--</b> learning</span>
+                <span><b id="mb-gaps">--</b> gaps</span>
+                <span><b id="mb-rusty">--</b> rusty</span>
+              </div>
+            </div>
+
+            <div class="command-panel">
+              <div class="window-bar">
+                <span><i class="dot live"></i>quiz terminal</span>
+                <div class="student-pick">
+                  <select id="student-select" title="choose a student"></select>
+                  <button id="enroll-btn2" class="text-action" title="enroll a new student">+ new</button>
+                </div>
+              </div>
+
+              <div class="quiz-area">
+                <div class="quiz-concept" id="quiz-concept">press start to begin</div>
+                <div class="quiz-question" id="quiz-question">The quiz walks the prerequisite graph and asks only what
+                  you are ready to learn.</div>
+                <div class="quiz-options" id="quiz-options"></div>
+                <div class="quiz-feedback hidden" id="quiz-feedback"></div>
+                <button id="quiz-start" class="primary-btn wide" style="margin-top: 12px;"><i
+                    data-lucide="play"></i><span>start quiz</span></button>
+              </div>
+
+              <div class="ask-box">
+                <input id="ask-input" type="text" placeholder="ask your memory: explain closures to me" />
+                <button id="ask-btn"><i data-lucide="send"></i><span>ask</span></button>
+              </div>
+
+              <div class="controls">
+                <button id="retire-btn" class="ctl" title="forget() a mastered concept from active practice"><i
+                    data-lucide="archive"></i><span>retire mastered</span></button>
+                <button id="reset-btn" class="ctl" title="Real forget(dataset) on Cognee Cloud"><i
+                    data-lucide="rotate-ccw"></i><span>reset student</span></button>
+              </div>
+            </div>
+
+            <div id="ask-card" class="answer-card hidden">
+              <div class="answer-head">
+                <span>your memory answers</span>
+                <span id="ask-source" class="status-pill">cloud</span>
+              </div>
+              <div id="ask-answer" class="answer-text"></div>
+            </div>
+
+          </section>
+
+          <section class="graph-column">
+            <div class="graph-panel">
+              <div class="window-bar graph-head">
+                <span><i class="dot blue"></i>mastery graph</span>
+                <div class="graph-actions">
+                  <div class="tabs">
+                    <span class="active" id="clock-label">today</span>
+                  </div>
+                  <button class="panel-btn maximize-trigger" data-panel="graph" title="Maximize graph"><i
+                      data-lucide="maximize-2"></i></button>
+                </div>
+              </div>
+              <div id="graph"></div>
+            </div>
+
+            <div class="lifecycle">
+              <div class="life-step active" id="life-remember"><b>01</b><span>remember</span></div>
+              <div class="life-step" id="life-recall"><b>02</b><span>recall</span></div>
+              <div class="life-step" id="life-improve"><b>03</b><span>improve</span></div>
+              <div class="life-step" id="life-forget"><b>04</b><span>forget</span></div>
+            </div>
+          </section>
+
+          <aside class="report-column">
+            <div class="report-head">
+              <div>
+                <span class="overline">student report</span>
+                <h3 id="report-student">alice</h3>
+              </div>
+              <div class="report-actions">
+                <span id="report-status" class="status-pill">live</span>
+                <button class="panel-btn maximize-trigger" data-panel="report" title="Maximize report"><i
+                    data-lucide="maximize-2"></i></button>
+              </div>
+            </div>
+            <div class="report-scroll-container">
+              <div class="restore-card">
+                <div class="section-title tight">
+                  <span>your next step</span>
+                </div>
+                <pre id="next-step">picked by walking the prerequisite graph.</pre>
+              </div>
+
+              <div class="legend">
+                <div class="legend-title">signal key</div>
+                <div><span class="key gap"></span> gap (mastery &lt; 35%)</div>
+                <div><span class="key learning"></span> learning</div>
+                <div><span class="key mastered"></span> mastered (&gt; 75%)</div>
+                <div><span class="key rusty"></span> rusty (14d untouched)</div>
+              </div>
+
+              <div class="timeline-panel">
+                <div class="legend-title">session log</div>
+                <div id="session-log" class="session-log">
+                  <div>answers, recalls, and forgets appear here.</div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </section>
+
+      <!-- ======================= TEACHER ======================= -->
+      <section id="teacher-view" class="view">
+        <section class="headline-band">
+          <h2><span>one class.</span> one shared memory map.</h2>
+          <p>Every student is an isolated Cognee Cloud dataset. The teacher reads across all of them: this is the view
+            a single-user app cannot build.</p>
+        </section>
+
+        <section class="workbench two">
+          <section class="case-column">
+            <div class="command-panel">
+              <div class="window-bar">
+                <span><i class="dot live"></i>ask the class</span>
+                <code>multi-dataset recall</code>
+              </div>
+              <div class="ask-box">
+                <input id="class-ask-input" type="text"
+                  placeholder="who has mastered recursion?" />
+                <button id="class-ask-btn"><i data-lucide="send"></i><span>ask</span></button>
+              </div>
+              <div id="class-ask-card" class="answer-card hidden" style="border: 0; border-bottom: 1px solid var(--line);">
+                <div class="answer-head">
+                  <span>one recall, every student's memory</span>
+                  <span id="class-ask-source" class="status-pill">cloud</span>
+                </div>
+                <div id="class-ask-answer" class="answer-text"></div>
+              </div>
+            </div>
+            <div class="command-panel">
+              <div class="window-bar">
+                <span><i class="dot blue"></i>teach this next</span>
+              </div>
+              <ol id="teach-next" class="teach-next"></ol>
+            </div>
+            <div class="command-panel">
+              <div class="window-bar">
+                <span><i class="dot live"></i>intervention</span>
+              </div>
+              <div id="intervention-card" class="intervention-card">
+                <b>No review assigned yet.</b>
+                <span>Use "assign" beside a class gap to create a targeted review list.</span>
+              </div>
+            </div>
+            <div class="command-panel">
+              <div class="window-bar">
+                <span><i class="dot live"></i>students</span>
+              </div>
+              <div id="student-list" class="cockpit-students"></div>
+            </div>
+          </section>
+
+          <section class="graph-column">
+            <div class="graph-panel">
+              <div class="window-bar graph-head">
+                <span><i class="dot blue"></i><span id="teacher-graph-title">class heat map</span></span>
+                <button id="back-to-class" class="text-action hidden">back to class</button>
+              </div>
+              <div id="teacher-graph"></div>
+            </div>
+            <div class="metrics-row">
+              <div><b id="t-students">00</b><span>students</span></div>
+              <div><b id="t-worst">--</b><span>biggest gap</span></div>
+              <div><b id="t-red">--</b><span>class red</span></div>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <!-- ======================= ABOUT ======================= -->
+      <section id="about-view" class="view about-view">
+        <section class="about-hero">
+          <p class="overline">about the project</p>
+          <h1><span>a school</span> that remembers.</h1>
+          <p>Classroom Memory gives every student an isolated Cognee Cloud memory and gives the teacher a live map of
+            what the whole class is forgetting. It is built like a reusable classroom product, not a one-off demo:
+            deterministic curriculum, enrollable students, cloud verification, and a clear production path.</p>
+        </section>
+
+        <section class="about-grid">
+          <article>
+            <span class="num">01</span>
+            <h2>the problem</h2>
+            <p>Quiz apps treat you the same on day 1 and day 100. They do not know what you mastered, what you are
+              forgetting, or what you are ready to learn next. And teachers discover class-wide gaps at exam time,
+              when it is too late.</p>
+          </article>
+          <article>
+            <span class="num">02</span>
+            <h2>the idea</h2>
+            <p>Hold each student's knowledge as a real memory: a graph of concepts with mastery weights that rise with
+              correct answers, decay with neglect, and live in Cognee Cloud so they survive every device and every
+              session.</p>
+          </article>
+          <article>
+            <span class="num">03</span>
+            <h2>the product</h2>
+            <p>An adaptive quiz that targets your frontier, an ask box answered from your own memory graph, and a
+              teacher heat map that reads across every student's dataset to say what to teach next. Add a student and
+              the same workflow starts from a blank memory.</p>
+          </article>
+        </section>
+
+        <section class="architecture-section">
+          <div class="section-heading">
+            <p class="overline">functional architecture</p>
+            <h2><span>every student.</span> one Cognee Cloud tenant.</h2>
+            <p>The browser holds zero learning state. The backend scores mastery and walks the curriculum graph.
+              Cognee Cloud stores the long-term curriculum memory, recall surface, per-student datasets, and learning
+              traces; the server ledger keeps exact mastery weights until Cloud improve is available remotely.</p>
+          </div>
+
+          <div class="premium-diagram data-flow-diagram">
+            <div class="diag-summary">
+              <div><b>1. act</b><span>student answers, asks, resets, or teacher assigns review</span></div>
+              <div><b>2. score</b><span>FastAPI walks the prerequisite graph and updates mastery</span></div>
+              <div><b>3. remember</b><span>Cognee Cloud stores curriculum, traces, recall, and interventions</span></div>
+              <div><b>4. return</b><span>the UI receives the next step, graph state, and provenance</span></div>
+            </div>
+
+            <div class="flow-map" aria-label="Classroom Memory data flow">
+              <div class="flow-node browser-node">
+                <div class="diag-header"><span>01</span> browser</div>
+                <div class="diag-box glow-blue">
+                  <div class="diag-icon"><i data-lucide="monitor"></i></div>
+                  <div class="diag-info">
+                    <h4>Student + teacher UI</h4>
+                    <p>Quiz answers, ask-memory questions, student enrollment, curriculum import, class heat map, and
+                      teacher review assignment.</p>
+                    <div class="diag-badges"><span>no browser state</span><span>vis-network</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flow-edge edge-rest">
+                <b>REST API</b>
+                <span>/quiz · /ask · /student · /class · /teacher</span>
+              </div>
+
+              <div class="flow-node api-node">
+                <div class="diag-header"><span>02</span> FastAPI backend</div>
+                <div class="diag-box glow-orange core-card">
+                  <div class="diag-icon"><i data-lucide="route"></i></div>
+                  <div class="diag-info">
+                    <h4>Provider + frontier engine</h4>
+                    <p>Validates inputs, walks prerequisites, scores mastery, chooses next concepts, and keeps demo and
+                      cloud modes behind one response shape.</p>
+                    <div class="mini-endpoints">app.py -> DemoProvider / CloudProvider</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flow-split">
+                <div class="flow-edge edge-ledger">
+                  <b>exact mastery state</b>
+                  <span>weights, students, interventions</span>
+                </div>
+                <div class="flow-edge edge-cloud">
+                  <b>Cognee memory ops</b>
+                  <span>serve · remember · recall · forget</span>
+                </div>
+              </div>
+
+              <div class="flow-node ledger-node">
+                <div class="diag-header"><span>03A</span> SQLite ledger</div>
+                <div class="diag-box glow-orange">
+                  <div class="diag-icon"><i data-lucide="table-2"></i></div>
+                  <div class="diag-info">
+                    <h4>Mastery ledger</h4>
+                    <p>Durable exact weights for every student and concept, plus assigned teacher interventions.</p>
+                    <div class="diag-badges"><span>mastery_ledger.sqlite</span><span>portable</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flow-node cloud-node">
+                <div class="diag-header"><span>03B</span> Cognee Cloud tenant</div>
+                <div class="diag-box glow-green">
+                  <div class="diag-icon"><i data-lucide="cloud"></i></div>
+                  <div class="diag-info">
+                    <h4>Hosted classroom memory</h4>
+                    <p>Per-student datasets hold curriculum memory and mastery traces. Teacher actions write to
+                      <code>class_interventions</code>.</p>
+                    <div class="diag-badges"><span>student_alice</span><span>mastery-trace</span><span>teacher-intervention</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flow-edge edge-return">
+                <b>response back to UI</b>
+                <span>next step, graph colors, answer sources, class gaps</span>
+              </div>
+
+              <div class="flow-node output-node">
+                <div class="diag-header"><span>04</span> usable classroom output</div>
+                <div class="diag-box glow-blue">
+                  <div class="diag-icon"><i data-lucide="check-circle-2"></i></div>
+                  <div class="diag-info">
+                    <h4>What changes for users</h4>
+                    <p>The student sees what to learn next. The teacher sees who is red or rusty and can assign targeted
+                      review to the affected students.</p>
+                    <div class="diag-badges"><span>student graph</span><span>teacher heat map</span><span>review list</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="diag-loop">
+              <div><b>quiz answer</b><span>FastAPI updates SQLite weights and recolors the graph</span></div>
+              <div><b>ask memory</b><span>Cognee recall reads the right student dataset and returns provenance</span></div>
+              <div><b>assign review</b><span>teacher action writes an intervention locally and to Cognee Cloud</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="proof-section">
+          <div class="section-heading">
+            <p class="overline">why cognee cloud</p>
+            <h2><span>not a database.</span> a memory that follows you.</h2>
+            <p>Isolation per student plus a teacher reading across datasets is a multi-tenant hosted memory problem.
+              A local, single-user instance cannot build this view.</p>
+          </div>
+          <div class="proof-grid">
+            <article>
+              <span class="num">01</span>
+              <h3>remember()</h3>
+              <p>Seeds each student's dataset with the curriculum and writes a trace every time a concept is mastered.
+              </p>
+              <code>~9s ingest, verified live</code>
+            </article>
+            <article>
+              <span class="num">02</span>
+              <h3>recall()</h3>
+              <p>The ask box answers from the student's own cloud graph, with dataset provenance attached.</p>
+              <code>~7s warm, verified live</code>
+            </article>
+            <article>
+              <span class="num">03</span>
+              <h3>improve()</h3>
+              <p>Mastery follows Cognee's feedback weight design, applied app side. Cloud does not expose remote
+                improve() yet; the provider boundary is ready for it.</p>
+              <code>feedback_weight semantics</code>
+            </article>
+            <article>
+              <span class="num">04</span>
+              <h3>forget()</h3>
+              <p>Retire a mastered concept, or reset a transfer student with a real dataset deletion on the tenant.</p>
+              <code>~2s delete, verified live</code>
+            </article>
+          </div>
+        </section>
+
+        <section class="proof-section">
+          <div class="section-heading">
+            <p class="overline">not a staged demo</p>
+            <h2><span>a planned product.</span> already working.</h2>
+            <p>This is not just three hardcoded students and a pretty graph. It has the minimum product spine a school
+              would need: enrollment, isolated memories, repeatable curriculum files, deterministic assessment, teacher
+              aggregation, cloud verification, and a clean path to production storage and auth.</p>
+          </div>
+          <div class="proof-grid">
+            <article>
+              <span class="num">01</span>
+              <h3>enroll anyone</h3>
+              <p>Add a student with one click. Their memory is a brand new Cognee Cloud dataset, created on their
+                first question and readable from any device, forever.</p>
+              <code>+ enroll</code>
+            </article>
+            <article>
+              <span class="num">02</span>
+              <h3>curricula are files</h3>
+              <p>The Python course is a plain JSON file: concepts, prerequisite edges, questions, and answer keys.
+                Adding a new subject
+                is adding a file, not writing code.</p>
+              <code>curriculum/python.json</code>
+            </article>
+            <article>
+              <span class="num">03</span>
+              <h3>provable, not claimed</h3>
+              <p>A one-command script asserts the full memory lifecycle against the live tenant, with timings, and
+                exits non-zero if anything is fake.</p>
+              <code>python backend/verify_cloud.py</code>
+            </article>
+            <article>
+              <span class="num">04</span>
+              <h3>production path</h3>
+              <p>The current app is useful for pilots. The next production steps are straightforward: database-backed
+                mastery ledger, school auth, curriculum upload, and native Cloud improve when exposed.</p>
+              <code>pilot today -> production next</code>
+            </article>
+          </div>
+        </section>
+
+        <section class="proof-section">
+          <div class="section-heading">
+            <p class="overline">execution quality</p>
+            <h2><span>built to be reused.</span> not rebuilt.</h2>
+            <p>The project separates product behavior from cloud plumbing, which is what makes it credible beyond a
+              hackathon screen recording.</p>
+          </div>
+          <div class="proof-grid">
+            <article>
+              <span class="num">01</span>
+              <h3>same API shapes</h3>
+              <p>DemoProvider and CloudProvider return identical JSON. The frontend does not care whether it is
+                offline or backed by Cognee Cloud.</p>
+              <code>provider pattern</code>
+            </article>
+            <article>
+              <span class="num">02</span>
+              <h3>teacher moat</h3>
+              <p>The teacher view is not a dashboard pasted on top. It reads across isolated student memories with one
+                multi-dataset recall path.</p>
+              <code>datasets=[student_*]</code>
+            </article>
+            <article>
+              <span class="num">03</span>
+              <h3>testable lifecycle</h3>
+              <p>The demo-mode smoke test covers quiz progression, decay, retire/reset, class ask, enrollment, and
+                invalid student guards.</p>
+              <code>backend/test_demo.py</code>
+            </article>
+            <article>
+              <span class="num">04</span>
+              <h3>honest limits</h3>
+              <p>The site names what is cloud-native today and what is planned. That makes the project stronger, not
+                weaker: judges can trust the claims.</p>
+              <code>no overclaiming</code>
+            </article>
+          </div>
+        </section>
+
+        <section class="proof-section">
+          <div class="section-heading">
+            <p class="overline">cloud console proof</p>
+            <h2><span>record the tenant.</span> show the receipts.</h2>
+            <p>For the final video, show Cognee Cloud itself, not only this app. Open the tenant console and capture
+              the datasets plus the latest activity from curriculum seeding, mastery traces, and teacher interventions.</p>
+          </div>
+          <div class="proof-grid">
+            <article>
+              <span class="num">01</span>
+              <h3>student datasets</h3>
+              <p>Show `student_alice`, `student_bob`, and `student_cara` in the Cloud console. These prove the
+                per-student isolation boundary.</p>
+              <code>dataset per student</code>
+            </article>
+            <article>
+              <span class="num">02</span>
+              <h3>curriculum nodes</h3>
+              <p>Open one student dataset and show the curriculum memory seeded with `remember()` and NodeSet tags.</p>
+              <code>curriculum node_set</code>
+            </article>
+            <article>
+              <span class="num">03</span>
+              <h3>mastery trace</h3>
+              <p>Master a concept in the quiz, then show the new trace activity written into that student's dataset.</p>
+              <code>mastery-trace</code>
+            </article>
+            <article>
+              <span class="num">04</span>
+              <h3>class action</h3>
+              <p>Assign review from the teacher view and show the `class_interventions` dataset entry.</p>
+              <code>teacher-intervention</code>
+            </article>
+          </div>
+        </section>
+
+        <section class="demo-path-section">
+          <div class="section-heading">
+            <p class="overline">demo flow</p>
+            <h2><span>two minutes.</span> a memory you can watch learn.</h2>
+          </div>
+          <div class="demo-path">
+            <div><b>Open</b><span>Alice's graph is all red. She is new.</span></div>
+            <div><b>Quiz</b><span>Four answers. One node goes red, amber, green, live.</span></div>
+            <div><b>Reload</b><span>Open it on a phone. Same memory. The only state is Cognee Cloud.</span></div>
+            <div><b>Decay</b><span>Age +30d. Old knowledge visibly rusts, like real memory.</span></div>
+            <div><b>Teach</b><span>The class heat map says: 70% red on recursion. Teach that next.</span></div>
+            <div><b>Enroll</b><span>Add yourself. Your own memory starts existing. Try it.</span></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer id="footer" class="site-footer">
+      <section class="footer-cta" aria-label="Verify Classroom Memory">
+        <div class="footer-cta-copy">
+          <p class="overline">live cloud proof</p>
+          <h2>verify it live.</h2>
+          <p>One command proves remember, recall, and forget against the real Cognee Cloud tenant, then checks the
+            red-to-green quiz arc.</p>
+        </div>
+        <div class="footer-actions">
+          <div class="footer-command">
+            <code>python backend/verify_cloud.py</code>
+            <button id="footer-copy-command" class="copy-command" title="Copy verify command"><i
+                data-lucide="copy"></i></button>
+          </div>
+          <div class="footer-buttons">
+            <a class="footer-button" href="#app" data-view="app"><i data-lucide="graduation-cap"></i><span>student
+                console</span></a>
+            <a class="footer-button" href="#teacher" data-view="teacher"><i data-lucide="users"></i><span>teacher
+                view</span></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="footer-main" aria-label="Footer">
+        <div class="footer-brand">
+          <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <p>a school that remembers.</p>
+          <p>working pilot. clear production path.</p>
+        </div>
+
+        <nav class="footer-nav" aria-label="Product">
+          <h3>Product</h3>
+          <a href="#app" data-view="app">student console</a>
+          <a href="#teacher" data-view="teacher">teacher view</a>
+          <a href="#about" data-view="about">about</a>
+        </nav>
+
+        <nav class="footer-nav" aria-label="Cognee proof">
+          <h3>Cognee proof</h3>
+          <a href="#about" data-view="about">architecture</a>
+          <a href="#about" data-view="about">lifecycle map</a>
+          <a href="#about" data-view="about">why cloud</a>
+        </nav>
+      </section>
+
+      <section class="footer-bottom">
+        <span>(c) 2026 Classroom Memory</span>
+        <span>every student is a Cognee Cloud dataset</span>
+      </section>
+    </footer>
+
+    <div id="enroll-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="enroll-title">
+      <section class="modal-card enroll-card">
+        <div class="modal-head">
+          <h3 id="enroll-title">Enroll Student</h3>
+          <button id="enroll-close" class="nav-button icon-only" title="Close"><i data-lucide="x"></i></button>
+        </div>
+        <p class="modal-sub">Create a fresh classroom memory. In cloud mode, their Cognee Cloud dataset is seeded on
+          first recall.</p>
+        <form id="enroll-form" class="enroll-form">
+          <label for="enroll-name">student id</label>
+          <div class="ask-box enroll-input">
+            <input id="enroll-name" type="text" autocomplete="off" placeholder="judge-one" />
+            <button type="submit"><i data-lucide="user-plus"></i><span>enroll</span></button>
+          </div>
+          <p id="enroll-error" class="enroll-error hidden"></p>
+        </form>
+      </section>
+    </div>
+
+    <div id="curriculum-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="curriculum-title">
+      <section class="modal-card curriculum-card">
+        <div class="modal-head">
+          <h3 id="curriculum-title">Import Curriculum</h3>
+          <button id="curriculum-close" class="nav-button icon-only" title="Close"><i data-lucide="x"></i></button>
+        </div>
+        <p class="modal-sub">Paste a curriculum JSON object with domain, title, concepts, prerequisite edges, and
+          quiz questions. The current class resets onto that curriculum after validation.</p>
+        <form id="curriculum-form" class="enroll-form">
+          <label for="curriculum-json">curriculum json</label>
+          <textarea id="curriculum-json" spellcheck="false"></textarea>
+          <div class="modal-actions">
+            <button id="curriculum-sample" type="button" class="outline-btn"><i
+                data-lucide="file-json"></i><span>sample</span></button>
+            <button type="submit" class="primary-btn"><i data-lucide="upload"></i><span>import</span></button>
+          </div>
+          <p id="curriculum-error" class="enroll-error hidden"></p>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

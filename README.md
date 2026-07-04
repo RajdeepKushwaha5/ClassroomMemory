@@ -1,0 +1,158 @@
+# 🎓 Classroom Memory
+
+**A school that remembers. Every student gets an isolated Cognee Cloud memory,
+adaptive mastery graph, and personal recall surface; the teacher gets a live heat map
+of where the whole class is forgetting.**
+
+Built for **The Hangover Part AI** hackathon · Track: **Best Use of Cognee Cloud** ·
+Solo build, Jun–Jul 2026.
+
+---
+
+## The problem
+
+Every learning app has amnesia. Close the tab and it forgets which concepts you
+struggled with, which you mastered months ago and are now forgetting, and what you
+should learn next. Students re-drill what they know and never systematically close
+their real gaps. Teachers get no signal at all: they find out about a class-wide gap
+at exam time.
+
+That is a *memory* problem, not a content problem. So we built the school out of a
+memory layer.
+
+## The solution
+
+- **One Cognee Cloud dataset per student.** Each student's mastery state lives in an
+  isolated, hosted memory dataset: not in localStorage, not in a browser session, not
+  on one device. Cognee Cloud owns long-term recall and learning traces; the backend
+  stores exact quiz mastery weights until remote `improve()` is available.
+- **A concept graph, not a question bank.** 22 Python concepts with `requires`
+  prerequisite edges. The quiz engine picks your **frontier**: the gap whose
+  prerequisites you already hold: by *graph traversal*, not similarity search. That's
+  the "not just RAG" difference.
+- **Mastery that moves like memory.** Correct answers push a concept red → amber →
+  green on screen, live. Untouched concepts decay to *rusty*. Mastered ones can be
+  **retired** (a real `forget()`), and a transfer student is one real dataset deletion.
+- **The teacher heat map (the part no single-user app can do).** The teacher reads
+  *across* all student datasets: "70% of the class is red on recursion: teach that
+  Thursday." Per-student drill-down included. This cross-dataset aggregation over
+  isolated per-student memories is exactly why this project needs **Cloud**, not a
+  local instance.
+- **Not hardcoded to three students or one subject.** The app can enroll a new student,
+  import a new curriculum JSON, create a fresh memory path, quiz from zero, and seed
+  Cognee datasets lazily on first recall.
+- **Teacher intervention workflow.** The heat map is actionable: assign review to every
+  student who is red or rusty on a concept, and persist that intervention in SQLite.
+
+## Why Cognee Cloud specifically
+
+| Need | Why local Cognee can't | What Cloud provides |
+|---|---|---|
+| Per-student isolated memory | Local single-writer, single principal | One hosted dataset per student |
+| Teacher reads across students | No multi-dataset tenancy story | One tenant, many datasets |
+| Any device, any time | State bound to one machine | `cognee.serve()` from anywhere |
+
+## How it uses the memory lifecycle
+
+| Capability | Where it runs, for real |
+|---|---|
+| `remember()` | Curriculum seeded into each student's Cloud dataset (one combined-document ingest, once); learning traces written when a concept is mastered, visible as activity in the Cognee Cloud console |
+| `remember(node_set=…)` | Every write is tagged (`curriculum`, `mastery-trace`): NodeSets become first-class graph nodes inside each student's memory |
+| `recall()` | The student **ask box**: free questions answered from the student's own cloud graph, with dataset provenance (measured ~7s warm) |
+| **multi-dataset `recall()`** | The teacher's **ask the class** box: ONE recall spanning every student's dataset at once, results labeled per student. This is the cross-student moat running through Cognee itself, not app code |
+| `forget()` | **Retire** a mastered concept; **reset student** = real `forget(dataset=…)` on the tenant (measured ~2s) |
+| `improve()` | **Honesty note:** Cognee Cloud's remote API returned 404 for `improve()` when we verified on 2026-07-04, so mastery re-weighting runs app-layer with the same semantics (`feedback_weight`-style scores per concept, persisted server-side). The provider interface means the day Cloud exposes `improve()`, it drops in without touching the UI. |
+
+**No client-side LLM key is needed.** `recall()` answers are generated server-side by
+Cognee Cloud; quiz questions are curated in `curriculum/python.json`, deterministic by
+design so the demo cannot die on a quota error.
+
+Everything above was verified against a live tenant: see **Verification** below.
+
+## Architecture
+
+```
+Browser SPA (student / teacher role toggle)
+  student: mastery graph (vis-network) · quiz card · next-step · ask box
+  teacher: class heat map · "teach this next" · per-student drill-down
+        │ REST/JSON
+FastAPI backend: provider pattern
+  DemoProvider   deterministic, zero-network (unbreakable demo fallback)
+  CloudProvider  real Cognee Cloud via cognee.serve(); async SDK bridged to
+                 sync endpoints on a dedicated event-loop thread
+  SQLite ledger  exact mastery weights, enrolled students, seeded datasets,
+                 teacher interventions
+        │ cognee SDK
+Cognee Cloud tenant: dataset per student (student_alice, student_bob, student_cara)
+```
+
+## Product readiness
+
+This is designed as a working pilot, not just a staged hackathon clip.
+
+- **Reusable curriculum model:** import a subject from the UI or add a JSON file with
+  concepts, prerequisites, summaries, and quiz questions.
+- **Real enrollment path:** the UI can add a new student; cloud mode creates their
+  dataset lazily on first recall.
+- **Durable mastery ledger:** cloud mode uses `backend/mastery_ledger.sqlite`, not a
+  JSON blob, for exact mastery weights, enrolled students, seeded datasets, and
+  teacher interventions.
+- **Actionable teacher loop:** the teacher can assign review to everyone red or rusty
+  on a concept; the assignment is persisted and can be shown in the product demo.
+- **Deterministic fallback:** `CLASSROOM_MODE=demo` runs the exact same UI offline, so
+  teachers and judges can try the product without cloud credentials.
+- **Cloud-verifiable:** `backend/verify_cloud.py` asserts `serve()`, `remember()`,
+  `recall()` with dataset provenance, multi-dataset recall, `forget()`, and the product
+  quiz arc.
+- **Production path:** move the SQLite mastery ledger to managed Postgres if
+  multi-school scale requires it, add school auth/RBAC, add richer
+  curriculum authoring, and wire native Cloud `improve()` when the remote endpoint is
+  exposed.
+
+## Run it
+
+```powershell
+cd backend
+copy .env.example .env       # fill in COGNEE_CLOUD_URL + COGNEE_CLOUD_API_KEY
+D:\cognee\.venv\Scripts\python.exe -m uvicorn app:app --port 8002 --host 0.0.0.0
+# open http://127.0.0.1:8002   (phone demo: http://<your-LAN-IP>:8002)
+```
+
+No Cloud account? `CLASSROOM_MODE=demo` in `.env` runs the identical UI fully offline.
+
+## Verification (one command)
+
+```powershell
+cd backend
+D:\cognee\.venv\Scripts\python.exe verify_cloud.py
+```
+
+Proves on the live tenant: `serve()` auth → `remember()` ingestion → `recall()` with a
+correct answer **and dataset provenance** → multi-dataset class recall →
+`forget()` deletion → the red→green quiz arc → the class-gap heat map. Exits non-zero
+on any failure.
+
+## Cloud console proof to record
+
+For the final video, show the Cognee Cloud console after running the app:
+
+1. `student_alice`, `student_bob`, `student_cara` datasets exist.
+2. A student dataset contains curriculum memory seeded by `remember()`.
+3. A mastered concept writes a `mastery-trace` activity.
+4. Assigning review writes to the `class_interventions` dataset with
+   `teacher-intervention` tags.
+
+## Honest limitations
+
+- Cloud `improve()` is not exposed remotely today (verified 404): mastery weighting is
+  app-layer; the semantics mirror Cognee's feedback-weight design.
+- Student/teacher roles are enforced by the app server over per-student datasets
+  (isolation and cross-dataset reads are real; native Cloud RBAC was not exercised).
+- Curriculum import is JSON-based; the next product step is a visual authoring flow for
+  non-technical teachers.
+
+## Disclosure
+
+Built with AI pair-programming assistance (Claude). All memory is powered by Cognee
+Cloud; all Cognee behavior claimed above was verified against a live tenant, with
+timings, on 2026-07-03/04.

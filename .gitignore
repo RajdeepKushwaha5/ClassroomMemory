@@ -1,0 +1,19 @@
+# secrets: never commit
+backend/.env
+
+# runtime state (regenerated; judges start clean)
+backend/mastery_ledger.sqlite
+backend/cloud_state.json
+curriculum/imported/
+
+# python
+__pycache__/
+*.pyc
+
+# os noise
+.DS_Store
+Thumbs.db
+
+# internal demo-prep material: keep local, never publish
+track-b-demo-video.md
+LIVE-DEMO-RUNBOOK.md
