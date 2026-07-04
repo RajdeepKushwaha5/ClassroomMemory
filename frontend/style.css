@@ -3530,3 +3530,17 @@ h4,
     padding: 14px 16px;
   }
 }
+
+/* class setup modal textarea */
+.enroll-form textarea {
+  width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font: inherit;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  resize: vertical;
+  outline: 0;
+}
+.enroll-form textarea:focus { border-color: var(--accent); }

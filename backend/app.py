@@ -131,6 +131,15 @@ def add_student(body: StudentBody):
     return provider.add_student(body.student)
 
 
+class ClassSetupBody(BaseModel):
+    students: list[str]
+
+
+@app.post("/api/class/setup")
+def class_setup(body: ClassSetupBody):
+    return provider.setup_class(body.students)
+
+
 @app.get("/api/curricula")
 def curricula():
     return provider.curricula()

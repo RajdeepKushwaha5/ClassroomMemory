@@ -137,6 +137,7 @@ class ClassroomProvider:
     def ask(self, student: str, question: str) -> dict: ...
     def class_ask(self, question: str) -> dict: ...
     def add_student(self, student: str) -> dict: ...
+    def setup_class(self, students: list[str]) -> dict: ...
     def curricula(self) -> dict: ...
     def import_curriculum(self, payload: dict) -> dict: ...
     def assign_review(self, concept: str) -> dict: ...
@@ -156,6 +157,7 @@ class DemoProvider(ClassroomProvider):
         self._states: dict[str, dict] = {}
         self._question_cursor: dict[tuple[str, str], int] = {}
         self._sessions: dict[str, dict] = {}
+        self._assignments: list[dict] = []
         self._seed_all()
 
     # ---------- seeding ----------
@@ -191,6 +193,32 @@ class DemoProvider(ClassroomProvider):
             if cid in cara:
                 cara[cid].update(weight=0.3, updated_at=t)
         self._states["cara"] = cara
+
+        # a class-sized roster: curriculum order is progressive, so a "progress
+        # point" per student produces believable individual gradients and a
+        # heat map that reads like a real classroom
+        order = list(self.concepts)
+        n = max(1, len(order) - 1)
+        classroom = {
+            "aarav": 0.85, "priya": 0.6, "ishaan": 0.55, "meera": 0.35,
+            "rohan": 0.3, "ananya": 0.7, "dev": 0.2,
+        }
+        for i, (sid, progress) in enumerate(classroom.items()):
+            st = self._fresh_state()
+            for j, cid in enumerate(order):
+                pos = j / n
+                if pos < progress * 0.65:
+                    w = 0.86 - (i % 3) * 0.03
+                elif pos < progress:
+                    w = 0.5 - (j % 3) * 0.04
+                else:
+                    w = 0.2 - (j % 2) * 0.05
+                st[cid]["weight"] = round(min(0.95, max(0.1, w)), 2)
+            # recursion is the classic class-wide struggle: keep it a real gap
+            # regardless of overall progress (also anchors the demo narrative)
+            if "recursion" in st:
+                st["recursion"]["weight"] = round(0.18 + (i % 3) * 0.05, 2)
+            self._states[sid] = st
 
     # ---------- core reads ----------
 
@@ -237,6 +265,33 @@ class DemoProvider(ClassroomProvider):
             "age_days": round(age_days, 1),
         }
 
+    def _open_assignments(self, student: str) -> list[dict]:
+        """Teacher-assigned reviews still relevant to this student (red or rusty)."""
+        state = self._states.get(student, {})
+        out = []
+        seen = set()
+        for a in reversed(self._assignments):
+            cid = a["concept"]
+            if cid in seen or cid not in self.concepts or cid not in state:
+                continue
+            if student not in a.get("student_ids", []):
+                continue
+            view = self._view_concept(cid, state[cid], 0)
+            if view["band"] == "red" or view["rusty"]:
+                seen.add(cid)
+                missing = [
+                    self.concepts[r]["name"]
+                    for r in self.concepts[cid]["requires"]
+                    if state[r]["weight"] < RED_MAX
+                ]
+                out.append({
+                    "concept": cid,
+                    "name": self.concepts[cid]["name"],
+                    "unlocked": not missing,
+                    "blocked_by": missing,
+                })
+        return out
+
     def student_graph(self, student: str, offset_days: int = 0) -> dict:
         state = self._require(student)
         nodes = [self._view_concept(cid, rec, offset_days) for cid, rec in state.items()]
@@ -251,6 +306,7 @@ class DemoProvider(ClassroomProvider):
             "edges": edges,
             "frontier": frontier,
             "next_step": frontier[0] if frontier else None,
+            "assignments": self._open_assignments(student),
         }
 
     # ---------- frontier + quiz ----------
@@ -381,6 +437,23 @@ class DemoProvider(ClassroomProvider):
         self._states[sid] = self._fresh_state()
         return {"ok": True, "student": sid}
 
+    def setup_class(self, students: list[str]) -> dict:
+        """A teacher sets up her whole class in one step: a list of names in,
+        a classroom of fresh memories out. Existing names are kept, not reset."""
+        added, kept, rejected = [], [], []
+        for raw in students:
+            name = str(raw).strip().lower()
+            if not name:
+                continue
+            if name in self._states:
+                kept.append(name)
+                continue
+            res = self.add_student(name)
+            (added if res.get("ok") else rejected).append(
+                name if res.get("ok") else {"name": name, "reason": res.get("reason")})
+        return {"ok": True, "added": added, "kept": kept, "rejected": rejected,
+                "class_size": len(self._states)}
+
     # ---------- curriculum + teacher action ----------
 
     def curricula(self) -> dict:
@@ -426,6 +499,13 @@ class DemoProvider(ClassroomProvider):
                     "weight": view["weight"],
                 })
         c = self.concepts[concept]
+        # visible to students in their own view (closes the intervention loop)
+        self._assignments.append({
+            "concept": concept,
+            "concept_name": c["name"],
+            "student_ids": [a["student"] for a in assignments],
+            "ts": now_ms(),
+        })
         return {
             "ok": True,
             "concept": concept,
@@ -559,6 +639,15 @@ class CloudProvider(DemoProvider):
         self._ledger.migrate_cloud_state_json(self.LEGACY_STATE_PATH, self.concepts)
         self._states = self._ledger.load_states(self._states)
         self._seeded = self._ledger.seeded(self.curriculum["domain"])
+        # assignments survive restarts: rehydrate from the intervention ledger
+        for iv in reversed(self._ledger.recent_interventions(limit=20)):
+            if iv["concept"] in self.concepts:
+                self._assignments.append({
+                    "concept": iv["concept"],
+                    "concept_name": iv["concept_name"],
+                    "student_ids": [s["student"] for s in iv["students"]],
+                    "ts": iv["created_at"],
+                })
 
     def _save_state(self):
         self._ledger.save_all(self._states)
@@ -651,9 +740,16 @@ class CloudProvider(DemoProvider):
         come back per dataset, which is exactly the per-student shape a teacher needs."""
         if self._connected:
             try:
-                for sid in sorted(self._states):
-                    self.ensure_seeded(sid)
-                datasets = [self._dataset(s) for s in sorted(self._states)]
+                # Query ONLY already-seeded datasets: with a class-sized roster,
+                # seeding everyone here would block for minutes (~20s/student).
+                # If nothing is seeded yet, seed the three sample students once.
+                datasets = [self._dataset(s) for s in sorted(self._states)
+                            if self._dataset(s) in self._seeded]
+                if not datasets:
+                    for sid in ("alice", "bob", "cara"):
+                        if sid in self._states:
+                            self.ensure_seeded(sid)
+                    datasets = sorted(self._seeded)
                 res = self._call(self._cognee.recall(
                     question, datasets=datasets, top_k=8), timeout=60)
                 items = res if isinstance(res, list) else [res]

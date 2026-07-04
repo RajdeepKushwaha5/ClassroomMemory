@@ -46,10 +46,11 @@
           <div class="hero-copy">
             <p class="overline">track b / best use of cognee cloud</p>
             <h1><span>Every student.</span> <strong>One memory.</strong> <em>A school that remembers.</em></h1>
-            <p class="hero-text">Every learning app forgets you the moment you close the tab. Classroom Memory keeps
-              each student's learning context as an isolated Cognee Cloud memory, quizzes the exact frontier of what
-              they are ready to learn, and shows the teacher where the whole class is forgetting. It is a working
-              product spine: enroll students, teach, recall, reset, and verify the cloud lifecycle end to end.</p>
+            <p class="hero-text">In classrooms across India, one teacher faces 40 to 60 students. No human can hold
+              60 mastery states in their head, so struggling students stay invisible until exam day. EdTech digitized
+              the content; nobody gave the teacher a memory of each child. Classroom Memory does: every student is an
+              isolated Cognee Cloud memory, quizzed at exactly the frontier they are ready to learn, while the
+              teacher sees where the whole class is forgetting, live.</p>
             <div class="hero-actions">
               <button id="hero-start" class="primary-btn"><span>start a quiz</span><i
                   data-lucide="arrow-right"></i></button>
@@ -222,6 +223,13 @@
               </div>
             </div>
             <div class="report-scroll-container">
+              <div class="restore-card hidden" id="assignment-card">
+                <div class="section-title tight">
+                  <span>teacher assigned review</span>
+                </div>
+                <pre id="assignment-list"></pre>
+              </div>
+
               <div class="restore-card">
                 <div class="section-title tight">
                   <span>your next step</span>
@@ -276,7 +284,10 @@
             <div class="command-panel">
               <div class="window-bar">
                 <span><i class="dot live"></i>ask the class</span>
-                <code>multi-dataset recall</code>
+                <span class="student-pick">
+                  <button id="class-setup-btn" class="text-action">set up class</button>
+                  <code>multi-dataset recall</code>
+                </span>
               </div>
               <div class="ask-box">
                 <input id="class-ask-input" type="text"
@@ -344,10 +355,11 @@
         <section class="about-grid">
           <article>
             <span class="num">01</span>
-            <h2>the problem</h2>
-            <p>Quiz apps treat you the same on day 1 and day 100. They do not know what you mastered, what you are
-              forgetting, or what you are ready to learn next. And teachers discover class-wide gaps at exam time,
-              when it is too late.</p>
+            <h2>the unsolved problem</h2>
+            <p>In India and much of the world, one teacher faces 40 to 60 students. Personal attention is
+              mathematically impossible, so gaps stay invisible until exams, and each year's gaps compound into the
+              next. EdTech shipped videos and question banks: content at scale. What was never built is memory at
+              scale: a system that knows what each individual child knows.</p>
           </article>
           <article>
             <span class="num">02</span>
@@ -713,6 +725,23 @@
             <button type="submit"><i data-lucide="user-plus"></i><span>enroll</span></button>
           </div>
           <p id="enroll-error" class="enroll-error hidden"></p>
+        </form>
+      </section>
+    </div>
+
+    <div id="class-setup-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="class-setup-title">
+      <section class="modal-card enroll-card">
+        <div class="modal-head">
+          <h3 id="class-setup-title">Set Up Your Class</h3>
+          <button id="class-setup-close" class="nav-button icon-only" title="Close"><i data-lucide="x"></i></button>
+        </div>
+        <p class="modal-sub">Paste your students' names, one per line or comma separated. Each becomes an isolated
+          classroom memory; Cognee Cloud datasets are created on each student's first question.</p>
+        <form id="class-setup-form" class="enroll-form">
+          <label for="class-setup-names">student names</label>
+          <textarea id="class-setup-names" rows="6" placeholder="aditi&#10;farhan&#10;neha&#10;sanjay"></textarea>
+          <p id="class-setup-error" class="enroll-error hidden"></p>
+          <button type="submit" class="primary-btn wide"><i data-lucide="users"></i><span>create class</span></button>
         </form>
       </section>
     </div>

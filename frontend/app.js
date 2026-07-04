@@ -335,6 +335,20 @@ async function loadStudentGraph() {
     ? `${next.name}\n${next.summary}`
     : "all frontier concepts mastered.";
   $("#clock-label").textContent = state.offsetDays ? `+${state.offsetDays}d` : "today";
+
+  // teacher-assigned reviews, with the graph explaining what unlocks them
+  const card = $("#assignment-card");
+  const assignments = g.assignments || [];
+  if (assignments.length) {
+    $("#assignment-list").textContent = assignments.map((a) =>
+      a.unlocked
+        ? `${a.name}: ready to practice. The quiz will reach it next.`
+        : `${a.name}: locked until you learn ${a.blocked_by.join(" and ")}.`
+    ).join("\n");
+    card.classList.remove("hidden");
+  } else {
+    card.classList.add("hidden");
+  }
 }
 
 /* ---------- quiz ---------- */
@@ -923,6 +937,42 @@ async function init() {
   safely("class-ask", () => {
     $("#class-ask-btn").onclick = classAsk;
     $("#class-ask-input").addEventListener("keydown", (e) => { if (e.key === "Enter") classAsk(); });
+  });
+
+  safely("class-setup", () => {
+    const modal = $("#class-setup-modal");
+    const open = () => {
+      $("#class-setup-error").classList.add("hidden");
+      modal.classList.remove("hidden");
+      icons();
+      setTimeout(() => $("#class-setup-names").focus(), 40);
+    };
+    const close = () => modal.classList.add("hidden");
+    $("#class-setup-btn").onclick = open;
+    $("#class-setup-close").onclick = close;
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    $("#class-setup-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const names = $("#class-setup-names").value
+        .split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+      if (!names.length) return;
+      const res = await api("/api/class/setup", {
+        method: "POST", body: JSON.stringify({ students: names }),
+      });
+      if (res.rejected && res.rejected.length) {
+        $("#class-setup-error").textContent =
+          "not enrolled: " + res.rejected.map((r) => `${r.name} (${r.reason})`).join("; ");
+        $("#class-setup-error").classList.remove("hidden");
+      } else {
+        close();
+      }
+      await loadStudents();
+      await loadCockpit();
+      if (state.view === "teacher") { state.teacherDrill = null; await loadTeacher(); }
+      kicker(`class of ${res.class_size}.`,
+        `${res.added.length} enrolled${res.kept.length ? `, ${res.kept.length} already existed` : ""}. Each is an isolated classroom memory.`);
+      log(`<b>class setup</b> +${res.added.length} students`, "good");
+    });
   });
 
   safely("chrome", () => {

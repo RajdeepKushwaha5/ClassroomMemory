@@ -9,15 +9,20 @@ Solo build, Jun–Jul 2026.
 
 ---
 
-## The problem
+## The unsolved problem
 
-Every learning app has amnesia. Close the tab and it forgets which concepts you
-struggled with, which you mastered months ago and are now forgetting, and what you
-should learn next. Students re-drill what they know and never systematically close
-their real gaps. Teachers get no signal at all: they find out about a class-wide gap
-at exam time.
+In classrooms across India and much of the world, one teacher faces 40 to 60
+students. Personal attention is mathematically impossible: no human can hold 60
+individual mastery states in their head. So struggling students stay invisible
+until exam day, and each year's gaps compound into the next year's failures.
 
-That is a *memory* problem, not a content problem. So we built the school out of a
+EdTech attacked the wrong half of the problem. It digitized *content*: videos,
+question banks, lectures at scale. What was never built is *memory* at scale: a
+system that knows what each individual child actually knows, what they are
+forgetting, and what they are ready to learn next, and that shows the teacher
+where the whole class is silently failing.
+
+That is a memory problem, not a content problem. So we built the school out of a
 memory layer.
 
 ## The solution

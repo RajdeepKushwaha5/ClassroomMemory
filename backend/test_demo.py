@@ -25,7 +25,9 @@ assert h["mode"] == "demo" and h["concepts"] == 22, h
 print("health:", h)
 
 s = ok(c.get("/api/students"), "students")
-assert {x["id"] for x in s["students"]} == {"alice", "bob", "cara"}
+roster_ids = {x["id"] for x in s["students"]}
+assert {"alice", "bob", "cara"}.issubset(roster_ids), roster_ids
+assert len(roster_ids) >= 10, f"class-sized roster expected, got {len(roster_ids)}"
 print("students:", [(x["id"], x["avg_weight"], x["gaps"]) for x in s["students"]])
 
 g = ok(c.get("/api/student/graph?student=alice"), "graph")
