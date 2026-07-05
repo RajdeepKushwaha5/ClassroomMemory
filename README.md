@@ -169,13 +169,26 @@ on any failure.
 
 ## Cloud console proof to record
 
-For the final video, show the Cognee Cloud console after running the app:
+For the final video, open the Cognee Cloud console (platform.cognee.ai) after
+running the app. Each student is a real named dataset with its own extracted
+knowledge graph, exactly like any Cognee dataset, just one per student instead
+of one shared `main_dataset`:
 
-1. `student_alice`, `student_bob`, `student_cara` datasets exist.
-2. A student dataset contains curriculum memory seeded by `remember()`.
-3. A mastered concept writes a `mastery-trace` activity.
+1. In the dataset dropdown, `student_alice`, `student_bob`, `student_cara` exist.
+2. Select `student_alice` and open **Knowledge Graph**. Cognee extracted the
+   course concepts as entities and the prerequisite `requires` relationships as
+   edges, from the seed document our app wrote. Click a node to see its source
+   chunk, provenance (`extract_graph_from_data` / `cognify_pipeline`), and
+   relations.
+3. A mastered concept adds a `mastery-trace` node linking the student to the
+   concept and to what it unlocks; the graph grows as the class learns.
 4. Assigning review writes to the `class_interventions` dataset with
    `teacher-intervention` tags.
+
+That the graph is real is provable without the console: `recall()` answers
+prerequisite questions by traversing those edges. Ask a student "what must I
+learn before decorators?" and the answer ("Functions and Closures") comes from
+the graph, not keyword matching.
 
 ## Honest limitations
 

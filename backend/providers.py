@@ -662,6 +662,7 @@ class CloudProvider(DemoProvider):
             print(f"[cloud] serve() failed, falling back to local state: {err}")
 
         self._seeded: set[str] = set()
+        self._active_dataset: dict[str, str] = {}  # student -> real dataset name
         self._ledger = SQLiteLedger(self.LEDGER_PATH)
         self._load_state()
 
@@ -683,8 +684,15 @@ class CloudProvider(DemoProvider):
 
     def _load_state(self):
         self._ledger.migrate_cloud_state_json(self.LEGACY_STATE_PATH, self.concepts)
+        # if the Cloud tenant changed, seeded-dataset tracking is stale (those
+        # datasets live on the OLD tenant): clear it so students re-seed here.
+        tenant = self._url.split("//")[-1].split(".")[0]
+        if self._ledger.sync_tenant(tenant):
+            print(f"[cloud] new tenant {tenant}: cleared stale seed tracking")
         self._states = self._ledger.load_states(self._states)
         self._seeded = self._ledger.seeded(self.curriculum["domain"])
+        # remember which actual (possibly versioned) dataset name each student uses
+        self._active_dataset = self._ledger.seeded_map(self.curriculum["domain"])
         # assignments survive restarts: rehydrate from the intervention ledger
         for iv in reversed(self._ledger.recent_interventions(limit=20)):
             if iv["concept"] in self.concepts:
@@ -700,12 +708,17 @@ class CloudProvider(DemoProvider):
 
     # ---------- cloud dataset per student ----------
 
-    def _dataset(self, student: str) -> str:
+    def _base_dataset(self, student: str) -> str:
         domain = self.curriculum["domain"]
         if domain == "python":
             return f"student_{student}"
         safe_domain = re.sub(r"[^a-z0-9_-]", "_", domain.lower())
         return f"student_{safe_domain}_{student}"
+
+    def _dataset(self, student: str) -> str:
+        """The dataset actually in use. Normally the clean base name; only after a
+        reset-race does it carry a version suffix (see ensure_seeded)."""
+        return self._active_dataset.get(student) or self._base_dataset(student)
 
     def _curriculum_doc(self, student: str) -> str:
         """Seed document written for graph extraction, not just reading:
@@ -731,42 +744,65 @@ class CloudProvider(DemoProvider):
             lines.append(line)
         return "\n".join(lines)
 
+    def _candidate_datasets(self, student: str):
+        """The clean base name first, then versioned fallbacks. A dataset that was
+        just forget()-ed deletes ASYNCHRONOUSLY on the tenant (observed: minutes),
+        so re-seeding the same name 409s until it settles. Rather than block a live
+        demo waiting, we fall back to student_alice_2, _3, ... which always succeeds
+        and never fights a pending delete. The clean name is tried first, so the
+        healthy path (and the Cognee console) still shows student_alice."""
+        base = self._base_dataset(student)
+        yield base
+        for v in range(2, 8):
+            yield f"{base}_{v}"
+
     def ensure_seeded(self, student: str):
         self._require(student)
-        dataset = self._dataset(student)
-        if not self._connected or dataset in self._seeded:
+        active = self._dataset(student)
+        if not self._connected or active in self._seeded:
             return
         # node_set tags become first-class NodeSet graph nodes (probed OK 2026-07-04).
-        # Retry on 409 with progressive backoff: after forget(dataset), the tenant
-        # deletes asynchronously and re-remember into the same name conflicts until
-        # the delete settles, which we observed live to take MINUTES, not seconds
-        # (2026-07-05: two reset->reseed attempts raced exactly this way).
-        backoffs = [10, 30, 60, 90]
-        for attempt, wait in enumerate(backoffs + [0]):
+        last_err = None
+        for dataset in self._candidate_datasets(student):
             try:
-                self._call(self._cognee.remember(
-                    self._curriculum_doc(student), dataset_name=dataset,
-                    node_set=["curriculum", self.curriculum["domain"]]), timeout=120)
-                break
+                # one quick retry on the clean name in case the delete just settled
+                for attempt in range(2):
+                    try:
+                        self._call(self._cognee.remember(
+                            self._curriculum_doc(student), dataset_name=dataset,
+                            node_set=["curriculum", self.curriculum["domain"]]),
+                            timeout=120)
+                        break
+                    except Exception as err:
+                        last_err = err
+                        if "409" in str(err) and attempt == 0:
+                            time.sleep(6)
+                            continue
+                        raise
+                # success: record the winning name as this student's active dataset
+                self._active_dataset[student] = dataset
+                self._seeded.add(dataset)
+                self._ledger.mark_seeded(dataset, student, self.curriculum["domain"])
+                return
             except Exception as err:
-                if "409" in str(err) and attempt < len(backoffs):
-                    time.sleep(wait)
-                    continue
+                last_err = err
+                if "409" in str(err):
+                    continue  # this name is mid-delete; try the next version
                 raise
-        self._seeded.add(dataset)
-        self._ledger.mark_seeded(dataset, student, self.curriculum["domain"])
+        raise last_err if last_err else RuntimeError("seed failed")
 
     # ---------- overrides ----------
 
     def health(self) -> dict:
         base = super().health()
+        # report clean student ids regardless of any version suffix on the dataset
         seeded_students = sorted(
             sid for sid in self._states
             if self._dataset(sid) in self._seeded
         )
         base.update(mode="cloud", cloud_connected=self._connected,
                     tenant=self._url.split("//")[-1].split(".")[0],
-                    seeded=sorted(d.replace("student_", "") for d in self._seeded),
+                    seeded=seeded_students,
                     seeded_students=seeded_students,
                     ledger=str(self.LEDGER_PATH.name))
         return base
@@ -807,12 +843,21 @@ class CloudProvider(DemoProvider):
                 dataset_name=self._dataset(student),
                 session_id=session_id,
                 self_improvement=False))
-        # When a concept crosses into green, write a real learning trace to the
-        # student's Cloud dataset (visible in the Cognee Cloud console: demo beat).
+        # When a concept crosses into green, write a rich, relationship-bearing
+        # trace so Cognee extracts a real graph: the student becomes an entity
+        # linked to the concept they mastered and to what that concept unlocks.
+        # (GrandmaCare showed this is how connected recall answers emerge.)
         if self._connected and res["concept"]["band"] == "green" and res["correct"]:
+            cid = res["concept"]["concept"] if "concept" in res["concept"] else concept
+            unlocks = [self.concepts[o]["name"] for o, c in self.concepts.items()
+                       if cid in c.get("requires", [])]
+            unlock_txt = (f" Mastering {res['concept']['name']} unlocks: "
+                          f"{', '.join(unlocks)}." if unlocks else "")
             self._fire_and_forget(self._cognee.remember(
-                f"{student} mastered the concept '{res['concept']['name']}' "
-                f"(mastery {res['weight_after']:.2f}).",
+                f"The student {student} has mastered the concept "
+                f"'{res['concept']['name']}' in the course "
+                f"'{self.curriculum['title']}'.{unlock_txt} "
+                f"{student} is now ready to learn the concepts it unlocks.",
                 dataset_name=self._dataset(student),
                 node_set=["mastery-trace"]))
         return res
@@ -871,6 +916,10 @@ class CloudProvider(DemoProvider):
                 self._call(self._cognee.forget(dataset=dataset), timeout=45)
                 self._seeded.discard(dataset)
                 self._ledger.unmark_seeded(dataset)
+                # advance to a fresh name so the next seed does not race this
+                # dataset's async delete (the 409 root cause). ensure_seeded still
+                # tries the clean base first if that has finished deleting.
+                self._active_dataset.pop(student, None)
             except Exception as err:
                 print(f"[cloud] forget failed (continuing with local reset): {err}")
         out = super().reset_student(student)

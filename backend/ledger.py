@@ -72,8 +72,30 @@ class SQLiteLedger:
                   foreign key (intervention_id) references interventions(id)
                     on delete cascade
                 );
+
+                create table if not exists meta (
+                  key text primary key,
+                  value text not null
+                );
                 """
             )
+
+    def sync_tenant(self, tenant: str) -> bool:
+        """Record the active Cloud tenant. If it changed, the seeded_datasets rows
+        point at datasets that live on a DIFFERENT tenant, so clear them: every
+        student will re-seed lazily on the new tenant. Mastery weights are
+        tenant-independent and kept. Returns True if the tenant changed."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "select value from meta where key = 'tenant'").fetchone()
+            previous = row["value"] if row else None
+            if previous == tenant:
+                return False
+            conn.execute("delete from seeded_datasets")
+            conn.execute(
+                "insert or replace into meta(key, value) values ('tenant', ?)",
+                (tenant,))
+        return True
 
     def student_ids(self) -> list[str]:
         with self._connect() as conn:
@@ -152,6 +174,16 @@ class SQLiteLedger:
             else:
                 rows = conn.execute("select dataset_name from seeded_datasets").fetchall()
         return {r["dataset_name"] for r in rows}
+
+    def seeded_map(self, domain: str) -> dict[str, str]:
+        """student_id -> the actual (possibly versioned) dataset name in use."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "select student_id, dataset_name from seeded_datasets "
+                "where curriculum_domain = ?",
+                (domain,),
+            ).fetchall()
+        return {r["student_id"]: r["dataset_name"] for r in rows}
 
     def mark_seeded(self, dataset_name: str, student: str, domain: str):
         with self._connect() as conn:
