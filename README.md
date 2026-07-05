@@ -16,6 +16,8 @@ The project was built for Track B, Best Use of Cognee Cloud. It is designed as a
 
 Live demo: https://classroom-memory.vercel.app/
 
+Demo video: https://www.youtube.com/watch?v=2AUA_g0S3Ks
+
 Repository: https://github.com/RajdeepKushwaha5/ClassroomMemory
 
 ## Core Idea
