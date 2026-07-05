@@ -2,7 +2,7 @@
 
 Classroom Memory is a Cognee Cloud-powered classroom memory layer. It gives every student an isolated long-term memory, adaptive mastery graph, personal recall surface, and report card. It gives the teacher a class-level memory map that reads across all students, identifies the next concept to teach, and turns class-wide gaps into assigned interventions.
 
-The project was built for Track B, Best Use of Cognee Cloud. It is designed as a working product prototype rather than a scripted demo: it has durable state, class setup, student enrollment, curriculum import, deterministic offline mode, cloud verification, and a teacher workflow that can be used end to end.
+The project was built for Track B, Best Use of Cognee Cloud. It is designed as a working product prototype rather than a scripted demo: it has durable state, class setup, student enrollment, curriculum import, live cloud verification, and a teacher workflow that can be used end to end.
 
 Repository: https://github.com/RajdeepKushwaha5/ClassroomMemory
 
@@ -78,7 +78,7 @@ That is why plain vector search or RAG would not have worked here. A vector hit 
 
 | Cognee capability | Product usage |
 |---|---|
-| `serve()` | Connects the backend to the authenticated Cognee Cloud tenant. The UI badge reports cloud or demo mode from this connection state. |
+| `serve()` | Connects the backend to the authenticated Cognee Cloud tenant. The UI badge reports the live cloud connection state. |
 | `remember()` | Seeds each student dataset with a relationship-rich curriculum document. Also writes mastery traces, progress snapshots, class overview memory, teaching-plan memory, and teacher interventions. |
 | `remember(session_id=...)` | Stores quiz attempts as session memory so recent learning events can be attached to the current student session without forcing every attempt into permanent graph memory. |
 | `remember(node_set=...)` | Tags memories as `curriculum`, `progress`, `mastery-trace`, `class-overview`, `teaching-plan`, or `teacher-intervention` so the cloud console shows structured memory activity. |
@@ -111,12 +111,9 @@ Browser SPA
         REST/JSON
 
 FastAPI backend
-  Provider interface
-    DemoProvider
-      deterministic, no network, same response shapes
-    CloudProvider
-      Cognee Cloud through cognee.serve()
-      async SDK bridged into sync FastAPI endpoints
+  CloudProvider
+    Cognee Cloud through cognee.serve()
+    async SDK bridged into sync FastAPI endpoints
 
   SQLite ledger
     students
@@ -139,22 +136,17 @@ Cognee Cloud tenant
 
 ## Backend Design
 
-The backend is a FastAPI application in `backend/app.py`. It exposes a provider interface so the same frontend can run against either:
-
-- `DemoProvider`: deterministic in-memory logic for offline demos and tests;
-- `CloudProvider`: real Cognee Cloud integration plus SQLite persistence.
-
-The provider interface keeps response shapes identical between modes. That means the frontend does not need special logic for demo versus cloud operation.
+The backend is a FastAPI application in `backend/app.py`. The `CloudProvider` handles the real Cognee Cloud integration and the SQLite persistence layer, and exposes a clean JSON API to the frontend.
 
 ### Main API Surface
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/health` | Backend mode, cloud connection status, active curriculum, concept count, seeded students, ledger name. |
+| `GET /api/health` | Cloud connection status, active curriculum, concept count, seeded students, ledger name. |
 | `GET /api/students` | Roster with mastery counts and gap counts. |
 | `GET /api/student/graph` | Student concept graph, frontier, next step, explainability, assignments, and session memory count. |
 | `GET /api/student/timeline` | Learning history reconstructed from concept practice timestamps and decay state. |
-| `GET /api/student/report` | Progress report generated from cloud recall in cloud mode or local mastery state in demo mode. |
+| `GET /api/student/report` | Progress report generated from the student's own Cognee Cloud memory via recall. |
 | `POST /api/quiz/next` | Next adaptive question for the student's graph frontier. |
 | `POST /api/quiz/answer` | Updates mastery weight, session memory, cursor, graph state, and cloud traces. |
 | `GET /api/class/heatmap` | Class-wide concept heat map with red, amber, green, and average mastery signals. |
@@ -337,9 +329,9 @@ The validator checks:
 
 Imported curriculum files are written under `curriculum/imported/`, which is ignored by Git as runtime state.
 
-## Built-In Demo Class
+## Sample Class Data
 
-Demo mode seeds a class-sized roster with different mastery profiles:
+The app seeds a class-sized roster with different mastery profiles so the teacher view is meaningful from the first second:
 
 - `alice`: fresh student, all concepts red;
 - `bob`: mid-progress;
@@ -365,23 +357,7 @@ D:\cognee\.venv\Scripts\python.exe
 
 Adjust that path if your Python environment is elsewhere.
 
-### Demo Mode
-
-Demo mode runs the full UI with deterministic local memory and no cloud account.
-
-```powershell
-cd D:\cognee-hack\track-b-classroom-memory\backend
-$env:CLASSROOM_MODE="demo"
-D:\cognee\.venv\Scripts\python.exe -m uvicorn app:app --port 8002 --host 127.0.0.1
-```
-
-Open:
-
-```text
-http://127.0.0.1:8002
-```
-
-### Cloud Mode
+### Configure and Run
 
 Create `backend/.env`:
 
@@ -413,7 +389,9 @@ http://<your-LAN-IP>:8002
 
 ## Verification
 
-### Offline Product Smoke Test
+### Product Logic Smoke Test
+
+This validates the product's graph, mastery, and teaching logic deterministically:
 
 ```powershell
 cd D:\cognee-hack\track-b-classroom-memory
@@ -465,7 +443,7 @@ This validates against the configured tenant:
 
 ## Suggested Demo Flow
 
-1. Start in cloud mode and show the `cognee cloud` badge.
+1. Start the app and show the `cognee cloud` badge.
 2. Open Alice in the student view.
 3. Answer three quiz questions correctly and show one concept move to mastered.
 4. Point to the student report: next step, explanation, timeline, and cloud memory contents.
@@ -500,9 +478,9 @@ track-b-classroom-memory/
   README.md
   backend/
     app.py              FastAPI app and REST endpoints
-    providers.py        DemoProvider, CloudProvider, mastery logic, Cognee integration
+    providers.py        CloudProvider, mastery logic, Cognee Cloud integration
     ledger.py           SQLite persistence layer
-    test_demo.py        Offline product smoke test
+    test_demo.py        Product logic smoke test
     verify_cloud.py     Live Cognee Cloud verification
   curriculum/
     python.json         Built-in prerequisite graph and quiz bank
@@ -522,13 +500,11 @@ Runtime files ignored by Git:
 ## Engineering Notes
 
 - The browser stores no mastery state.
-- Demo and cloud providers return the same JSON shapes.
 - Cloud calls are async, while FastAPI endpoints are sync; CloudProvider runs Cognee calls on a dedicated background event loop.
 - Slow or non-critical cloud writes use fire-and-forget wrappers so the UI stays responsive.
 - Student reset handles Cognee's asynchronous dataset deletion by falling back to versioned dataset names when needed.
 - Class setup and enrollment seed cloud datasets in the background.
-- Teacher recommendations are computed from the prerequisite graph and class mastery state, then written back into class memory when cloud mode is active.
-- The app is designed to degrade cleanly: demo mode remains fully usable without cloud credentials.
+- Teacher recommendations are computed from the prerequisite graph and class mastery state, then written back into class memory.
 
 ## Final Notes
 
