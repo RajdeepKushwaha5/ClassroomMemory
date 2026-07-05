@@ -918,8 +918,11 @@ class CloudProvider(DemoProvider):
                 f"{student} is now ready to learn the concepts it unlocks.",
                 dataset_name=self._dataset(student),
                 node_set=["mastery-trace"]))
-            # keep the personal progress snapshot current for console Q&A
+            # keep BOTH memories current: the student's personal snapshot AND the
+            # combined class graph, so the console and the teacher's class question
+            # reflect this new mastery immediately (additive, non-blocking).
             self.refresh_cloud_memory(student)
+            self.refresh_class_overview()
         return res
 
     def retire(self, student: str, concept: str) -> dict:

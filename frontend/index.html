@@ -198,6 +198,13 @@
                 </div>
               </div>
               <div id="graph"></div>
+              <div class="graph-legend">
+                <span><i class="lg gap"></i>gap</span>
+                <span><i class="lg learning"></i>learning</span>
+                <span><i class="lg mastered"></i>mastered</span>
+                <span><i class="lg rusty"></i>rusty</span>
+                <span class="lg-note">bigger circle = higher mastery · arrows = prerequisites</span>
+              </div>
             </div>
 
             <div class="lifecycle">
@@ -330,6 +337,12 @@
                 <button id="back-to-class" class="text-action hidden">back to class</button>
               </div>
               <div id="teacher-graph"></div>
+              <div class="graph-legend" id="teacher-legend">
+                <span><i class="lg gap"></i>class is red</span>
+                <span><i class="lg learning"></i>class is mixed</span>
+                <span><i class="lg mastered"></i>class has mastered</span>
+                <span class="lg-note">color = class-average mastery per concept · click a student to inspect</span>
+              </div>
             </div>
             <div class="metrics-row">
               <div><b id="t-students">00</b><span>students</span></div>
