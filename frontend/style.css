@@ -4153,3 +4153,50 @@ h4,
 .graph-legend .lg.rusty { background: #9a7c48; }
 .graph-legend .lg-note { color: var(--faint); margin-left: auto; }
 @media (max-width: 760px) { .graph-legend .lg-note { display: none; } }
+
+/* ---------- teaching plan (graph-reasoned pedagogy, teacher hero card) ---------- */
+.plan-headline {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.55;
+  font-weight: 600;
+}
+.teaching-plan { list-style: none; margin: 0; padding: 0; counter-reset: none; }
+.teaching-plan li { border-bottom: 1px solid var(--line); }
+.teaching-plan li:last-child { border-bottom: 0; }
+.plan-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.plan-main { min-width: 0; }
+.plan-main b { display: block; font-size: 13.5px; margin-bottom: 4px; }
+.plan-main small { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.plan-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.plan-tags em {
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--good);
+  border: 1px solid var(--line-strong);
+  padding: 2px 6px;
+}
+.plan-tags em.blocked { color: var(--warn); }
+.plan-row .assign-review {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.plan-row .assign-review:hover { color: var(--accent); border-color: var(--accent); }

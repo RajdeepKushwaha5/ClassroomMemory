@@ -88,6 +88,17 @@ assert rec["red_pct"] >= 50, "recursion should be a class-wide gap (cara+alice r
 assert rec["why"] and "students are red" in rec["why"], rec
 assert "alice" in rec["red_students"], rec["red_students"]
 
+# teaching plan: graph-reasoned pedagogy. The class is 100% red on asyncio, but the
+# plan must NOT recommend it (students are not ready); it should lead with a
+# foundational, high-unlock concept whose prerequisites are met.
+plan = ok(c.get("/api/teacher/plan"), "teaching plan")
+assert plan["headline"] and plan["plan"], plan
+top = plan["plan"][0]
+assert top["ready_count"] > 0 and top["unlocks"] > 0, top
+assert "recursion" not in [p["concept"] for p in plan["plan"][:2]], \
+    "plan should teach prerequisites before the class-wide advanced gaps"
+print(f"teaching plan: #1 = {top['name']} (ready={top['ready_count']}, unlocks={top['unlocks']})")
+
 # decay view: cara's old greens go rusty with offset
 gc0 = ok(c.get("/api/student/graph?student=cara&offset_days=0"), "cara now")
 rusty0 = sum(1 for n in gc0["nodes"] if n["rusty"])

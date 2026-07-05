@@ -494,19 +494,32 @@ async function resetStudent() {
 /* ---------- teacher ---------- */
 
 async function loadTeacher() {
-  const hm = await api(`/api/class/heatmap?offset_days=${state.offsetDays}`);
+  const [hm, plan] = await Promise.all([
+    api(`/api/class/heatmap?offset_days=${state.offsetDays}`),
+    api(`/api/teacher/plan?offset_days=${state.offsetDays}`),
+  ]);
   state.teacherHeatmap = hm;
 
-  const tn = $("#teach-next");
-  tn.innerHTML = "";
-  (hm.teach_next.length ? hm.teach_next : hm.concepts.slice(0, 3)).forEach((c) => {
+  // Teaching Plan: graph-reasoned pedagogy, the hero of the teacher view
+  $("#plan-headline").textContent = plan.headline || "The class has no ready gaps right now.";
+  const tp = $("#teaching-plan");
+  tp.innerHTML = "";
+  plan.plan.forEach((item, i) => {
     const li = document.createElement("li");
-    const redNames = (c.red_students || []).slice(0, 4).join(", ");
-    const reason = c.why || `${c.red_pct}% of the class is red`;
-    li.innerHTML = `<div class="teach-next-row"><span><span class="pct">${c.red_pct}% red</span> · ${c.name}` +
-      `<small>${escapeHtml(reason)}${redNames ? ` Red: ${escapeHtml(redNames)}.` : ""}</small></span>` +
-      `<button class="assign-review" data-concept="${c.id}">assign</button></div>`;
-    tn.appendChild(li);
+    li.innerHTML =
+      `<div class="plan-row">` +
+        `<div class="plan-main">` +
+          `<b>${i + 1}. ${escapeHtml(item.name)}</b>` +
+          `<small>${escapeHtml(item.reason)}</small>` +
+          `<span class="plan-tags">` +
+            `<em>${item.ready_count} ready</em>` +
+            (item.blocked_count ? `<em class="blocked">${item.blocked_count} not ready yet</em>` : "") +
+            `<em>unlocks ${item.unlocks}</em>` +
+          `</span>` +
+        `</div>` +
+        `<button class="assign-review" data-concept="${item.concept}">assign</button>` +
+      `</div>`;
+    tp.appendChild(li);
   });
   $$(".assign-review").forEach((btn) => {
     btn.onclick = () => assignReview(btn.dataset.concept);

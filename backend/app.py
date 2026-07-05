@@ -102,6 +102,11 @@ def class_heatmap(offset_days: int = 0):
     return provider.class_heatmap(offset_days)
 
 
+@app.get("/api/teacher/plan")
+def teaching_plan(offset_days: int = 0):
+    return provider.teaching_plan(offset_days)
+
+
 @app.post("/api/retire")
 def retire(body: RetireBody):
     return _guard(provider.retire, body.student, body.concept)

@@ -132,6 +132,7 @@ class ClassroomProvider:
     def quiz_next(self, student: str) -> dict: ...
     def quiz_answer(self, student: str, concept: str, answer_index: int) -> dict: ...
     def class_heatmap(self, offset_days: int = 0) -> dict: ...
+    def teaching_plan(self, offset_days: int = 0, top_k: int = 4) -> dict: ...
     def retire(self, student: str, concept: str) -> dict: ...
     def reset_student(self, student: str) -> dict: ...
     def ask(self, student: str, question: str) -> dict: ...
@@ -449,6 +450,92 @@ class DemoProvider(ClassroomProvider):
         teach_next = [r for r in rows if r["red_pct"] >= 50][:3]
         return {"concepts": rows, "teach_next": teach_next,
                 "students": self.students()["students"]}
+
+    # ---------- teaching plan (graph-reasoned pedagogy) ----------
+
+    def _downstream_counts(self) -> dict[str, int]:
+        """For each concept, how many concepts transitively depend on it (its
+        leverage). Computed once over the prerequisite graph."""
+        # direct dependents: who lists cid in their requires
+        dependents: dict[str, list[str]] = {cid: [] for cid in self.concepts}
+        for cid, c in self.concepts.items():
+            for req in c["requires"]:
+                if req in dependents:
+                    dependents[req].append(cid)
+        counts: dict[str, int] = {}
+        for cid in self.concepts:
+            seen, stack = set(), list(dependents[cid])
+            while stack:
+                d = stack.pop()
+                if d in seen:
+                    continue
+                seen.add(d)
+                stack.extend(dependents[d])
+            counts[cid] = len(seen)
+        return counts
+
+    def teaching_plan(self, offset_days: int = 0, top_k: int = 4) -> dict:
+        """Reason over the class memory graph to recommend WHAT to teach next.
+        A concept scores high when many students are stuck on it AND ready for it
+        (prerequisites met) AND it unlocks many downstream concepts. The 'ready'
+        filter is what makes the order pedagogically correct: if students are stuck
+        on a concept but also stuck on its prerequisite, the prerequisite ranks
+        first. This is pedagogy emerging from the prerequisite graph, not a rule."""
+        downstream = self._downstream_counts()
+        n = len(self._states)
+        rows = []
+        for cid, c in self.concepts.items():
+            ready, blocked = [], []
+            for sid, state in sorted(self._states.items()):
+                v = self._view_concept(cid, state[cid], offset_days)
+                if v["band"] == "red" or v["rusty"]:
+                    if all(state[r]["weight"] >= RED_MAX for r in c["requires"]):
+                        ready.append(sid)
+                    else:
+                        blocked.append(sid)
+            unlocks = downstream[cid]
+            score = len(ready) * (1 + unlocks)
+            if score <= 0:
+                continue
+            prereq_names = [self.concepts[r]["name"] for r in c["requires"]]
+            unlock_names = [
+                self.concepts[o]["name"] for o, oc in self.concepts.items()
+                if cid in oc.get("requires", [])
+            ]
+            reason = (
+                f"{len(ready)} of {n} students are stuck on {c['name']} and ready "
+                f"to learn it now"
+                + (f" (prerequisites {', '.join(prereq_names)} already mastered)"
+                   if prereq_names else " (a starting concept)")
+                + (f", and it unlocks {unlocks} downstream "
+                   f"concept{'s' if unlocks != 1 else ''}"
+                   f"{' including ' + ', '.join(unlock_names[:3]) if unlock_names else ''}."
+                   if unlocks else ".")
+            )
+            rows.append({
+                "concept": cid,
+                "name": c["name"],
+                "ready_students": ready,
+                "blocked_students": blocked,
+                "ready_count": len(ready),
+                "blocked_count": len(blocked),
+                "unlocks": unlocks,
+                "unlock_names": unlock_names,
+                "prerequisites": prereq_names,
+                "score": score,
+                "reason": reason,
+            })
+        rows.sort(key=lambda r: (-r["score"], -r["ready_count"], r["name"]))
+        plan = rows[:top_k]
+        headline = None
+        if plan:
+            top = plan[0]
+            after = ", ".join(p["name"] for p in plan[1:3])
+            headline = (
+                f"Teach {top['name']} next. {top['reason']}"
+                + (f" Then move to {after}." if after else "")
+            )
+        return {"plan": plan, "headline": headline, "class_size": n}
 
     # ---------- lifecycle: forget / reset / ask ----------
 
@@ -1082,6 +1169,18 @@ class CloudProvider(DemoProvider):
         out = super().import_curriculum(payload)
         self._ledger.save_all(self._states)
         self._seeded = self._ledger.seeded(self.curriculum["domain"])
+        return out
+
+    def teaching_plan(self, offset_days: int = 0, top_k: int = 4) -> dict:
+        out = super().teaching_plan(offset_days, top_k)
+        # write the recommendation into the class memory so a teacher can also ASK
+        # the cloud "what should I teach this week?" and recall it (closes the loop:
+        # the plan is both graph-reasoned AND stored as queryable class memory).
+        if self._connected and out.get("headline") and self._class_dataset() in self._seeded:
+            self._fire_and_forget(self._cognee.remember(
+                f"This week's recommended teaching plan for the class: {out['headline']}",
+                dataset_name=self._class_dataset(),
+                node_set=["teaching-plan"], self_improvement=False))
         return out
 
     def assign_review(self, concept: str) -> dict:
