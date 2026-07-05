@@ -14,6 +14,8 @@ By the numbers, on the live tenant: **12 private student memories, one dense cla
 
 The project was built for Track B, Best Use of Cognee Cloud. It is designed as a working product prototype rather than a scripted demo: it has durable state, class setup, student enrollment, curriculum import, live cloud verification, and a teacher workflow that can be used end to end.
 
+Live demo: https://classroom-memory.vercel.app/
+
 Repository: https://github.com/RajdeepKushwaha5/ClassroomMemory
 
 ## Core Idea
