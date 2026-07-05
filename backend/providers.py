@@ -1143,33 +1143,46 @@ class CloudProvider(DemoProvider):
     # ---------- combined class dataset (one graph for the whole class) ----------
 
     def _class_dataset(self) -> str:
+        # "class_graph": the dense whole-class dataset. A distinct name from the
+        # old class_overview so a fresh dense seed never races that dataset's
+        # (minutes-long) async delete on the tenant.
         domain = self.curriculum["domain"]
         if domain == "python":
-            return "class_overview"
-        return f"class_overview_{re.sub(r'[^a-z0-9_-]', '_', domain.lower())}"
+            return "class_graph"
+        return f"class_graph_{re.sub(r'[^a-z0-9_-]', '_', domain.lower())}"
 
     def _class_overview_doc(self) -> str:
-        """A concept-centric snapshot of the WHOLE class in one document, so a
-        single dataset answers 'which students are struggling with recursion?'
-        with a synthesized list instead of N separate per-student answers."""
+        """A DENSE, fully-connected class graph in one document: every student is
+        an entity, every concept is an entity, and every student-concept mastery
+        is stated as its own relationship sentence. Cognee extracts this into a
+        richly interconnected 'class brain' (students <-> concepts <-> prerequisite
+        concepts) rather than a sparse one. Individual sentences (not comma lists)
+        are what make both the graph dense AND recall accurate. Also carries the
+        prerequisite structure so concept-to-concept edges appear too."""
         title = self.curriculum["title"]
-        lines = [f"Class-wide learning overview for the course '{title}', covering "
-                 f"all {len(self._states)} students together in one class memory."]
+        lines = [
+            f"This is the shared learning memory of a whole class studying the "
+            f"course '{title}'. The class has {len(self._states)} students, and "
+            f"each student is learning the same {len(self.concepts)} concepts. "
+            f"The teacher uses this memory to see the whole class at once.",
+        ]
+        # concept -> concept prerequisite edges
         for cid, c in self.concepts.items():
-            strugglers, masters = [], []
-            for sid, state in sorted(self._states.items()):
-                rec = state[cid]
+            if c["requires"]:
+                reqs = " and ".join(self.concepts[r]["name"] for r in c["requires"])
+                lines.append(f"In this course, {c['name']} requires {reqs}.")
+        # student -> concept mastery edges (one sentence each = dense + extractable)
+        for sid, state in sorted(self._states.items()):
+            for cid, rec in state.items():
+                name = self.concepts[cid]["name"]
                 b = band(rec["weight"])
                 if rec["retired"] or b == "green":
-                    masters.append(sid)
+                    lines.append(f"The student {sid} has mastered {name}.")
                 elif b == "red":
-                    strugglers.append(sid)
-            if strugglers:
-                lines.append(f"For the concept '{c['name']}', these students still "
-                             f"have a gap and need help: {', '.join(strugglers)}.")
-            if masters:
-                lines.append(f"For the concept '{c['name']}', these students have "
-                             f"already mastered it: {', '.join(masters)}.")
+                    lines.append(f"The student {sid} has a gap in {name} "
+                                 f"and needs help with it.")
+                else:
+                    lines.append(f"The student {sid} is still learning {name}.")
         return "\n".join(lines)
 
     def ensure_class_seeded(self):
@@ -1178,10 +1191,11 @@ class CloudProvider(DemoProvider):
             return
         for attempt in range(2):
             try:
+                # dense class doc = many chunks to extract; allow a long window
                 self._call(self._cognee.remember(
                     self._class_overview_doc(), dataset_name=ds,
                     node_set=["class-overview", self.curriculum["domain"]]),
-                    timeout=120)
+                    timeout=300)
                 break
             except Exception as err:
                 if "409" in str(err) and attempt == 0:

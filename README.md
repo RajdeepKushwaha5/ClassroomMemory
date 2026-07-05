@@ -55,13 +55,30 @@ memory layer.
   memories at once. The sample data also includes a believable multi-student classroom,
   not just three demo accounts.
 
-## Why Cognee Cloud specifically
+## Why this needs the Cloud, not a local instance
 
-| Need | Why local Cognee can't | What Cloud provides |
+This is the heart of the submission, so it is worth stating plainly.
+
+The easy way to use a memory layer is to put everything into **one big graph**.
+That is impressive to look at, but it does not need the Cloud: a single graph runs
+just as well on a laptop.
+
+A classroom is the opposite shape. It is **many private memories — one isolated
+dataset per student — with a teacher who reads across all of them**, plus a combined
+class graph that no individual student can see. That is a multi-tenant memory
+problem, and it is structurally impossible on a single-user, single-writer local
+instance. It is exactly what a hosted, multi-tenant memory layer is for.
+
+So when the question is "why Cognee Cloud instead of local Cognee?", the answer here
+is not "convenience" or "hosting." It is that the product's *architecture* — private
+per-student memories plus cross-student teacher reads — cannot exist without it.
+
+| Need | Why a local instance can't | What Cloud provides |
 |---|---|---|
-| Per-student isolated memory | Local single-writer, single principal | One hosted dataset per student |
-| Teacher reads across students | No multi-dataset tenancy story | One tenant, many datasets |
-| Any device, any time | State bound to one machine | `cognee.serve()` from anywhere |
+| Private, isolated memory per student | Single-writer, single principal | One hosted dataset per student |
+| Teacher reads across every student at once | No multi-dataset tenancy | One tenant, many datasets, read across them |
+| A combined class graph over private memories | Nothing to aggregate across | A shared `class_graph` dataset alongside the private ones |
+| Same memory on any device, any day | State bound to one machine | `cognee.serve()` from anywhere |
 
 ## How it uses the memory lifecycle
 
