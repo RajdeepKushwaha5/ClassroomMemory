@@ -278,6 +278,7 @@ async function loadCockpit() {
   box.innerHTML = "";
   s.students.forEach((st) => {
     const b = document.createElement("button");
+    if (st.id === state.student) b.classList.add("active");
     b.innerHTML = `<span class="who">${st.id}</span>` +
       `<span class="mini">${st.mastered} mastered · ${st.gaps} gaps · avg ${(st.avg_weight * 100).toFixed(0)}%</span>`;
     b.onclick = () => {
@@ -513,6 +514,7 @@ async function loadTeacher() {
   list.innerHTML = "";
   hm.students.forEach((s) => {
     const b = document.createElement("button");
+    if (s.id === state.student) b.classList.add("active");
     b.innerHTML = `<span class="who">${s.id}</span>` +
       `<span class="mini">${s.mastered} mastered · ${s.gaps} gaps · avg ${(s.avg_weight * 100).toFixed(0)}%</span>`;
     b.onclick = () => drillStudent(s.id);

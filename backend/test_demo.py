@@ -118,6 +118,18 @@ g3 = ok(c.get("/api/student/graph?student=alice"), "graph after reset")
 assert sum(1 for n in g3["nodes"] if n["band"] == "red") == 22
 print("reset: alice back to 22/22 red")
 
+# Direct API clients should progress the question cursor too, not only the UI
+# path that calls /quiz/next before /quiz/answer.
+for idx in [1, 2, 1]:
+    ok(c.post("/api/quiz/answer", json={
+        "student": "alice", "concept": "variables", "answer_index": idx,
+    }), "direct answer cursor")
+direct = ok(c.get("/api/student/graph?student=alice"), "graph after direct answers")
+direct_var = next(n for n in direct["nodes"] if n["id"] == "variables")
+assert direct_var["band"] == "green", direct_var
+ok(c.post("/api/reset-student", json={"student": "alice"}), "reset after direct cursor")
+print("direct quiz-answer API cursor: variables reaches green")
+
 # ask the class (multi-dataset recall in cloud mode; deterministic here)
 ca = ok(c.post("/api/class/ask", json={"question": "who knows recursion?"}), "class ask")
 assert "Recursion" in ca["answer"] and "alice" in ca["answer"], ca

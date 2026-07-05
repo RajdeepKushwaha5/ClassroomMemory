@@ -403,6 +403,7 @@ class DemoProvider(ClassroomProvider):
 
         session = self._sessions.setdefault(student, {"id": str(uuid.uuid4()), "answers": []})
         session["answers"].append({"concept": concept, "correct": correct, "ts": rec["updated_at"]})
+        self._question_cursor[(student, concept)] = cursor + 1
 
         return {
             "student": student,
@@ -744,6 +745,44 @@ class CloudProvider(DemoProvider):
             lines.append(line)
         return "\n".join(lines)
 
+    def _mastery_summary_doc(self, student: str) -> str:
+        """A natural-language snapshot of THIS student's real progress, so the
+        Cognee graph (and the Cloud console Search) can answer personal questions
+        like 'what has Cara mastered?' correctly instead of guessing from the
+        generic curriculum. Written additively (no forget), so it never races a
+        delete."""
+        state = self._states[student]
+        # ONE clean relationship sentence per concept, so entity/edge extraction
+        # (and retrieval) works, exactly like the prerequisite sentences that
+        # already answer reliably. A single comma list does not extract into edges.
+        parts = [f"Learning progress report for the student {student} in the "
+                 f"course '{self.curriculum['title']}'."]
+        for cid, rec in state.items():
+            name = self.concepts[cid]["name"]
+            b = band(rec["weight"])
+            if rec["retired"] or b == "green":
+                parts.append(f"{student} has mastered {name}.")
+            elif b == "amber":
+                parts.append(f"{student} is still learning {name} and has not "
+                             f"mastered it yet.")
+            else:
+                parts.append(f"{student} has a gap in {name} and has not started "
+                             f"it yet.")
+        frontier = self._frontier(student)
+        if frontier:
+            parts.append(f"{student} is most ready to learn "
+                         f"{self.concepts[frontier[0]]['name']} next.")
+        return " ".join(parts)
+
+    def refresh_cloud_memory(self, student: str):
+        """Additive write of the current mastery snapshot. Safe (no delete)."""
+        if not self._connected or self._dataset(student) not in self._seeded:
+            return
+        self._fire_and_forget(self._cognee.remember(
+            self._mastery_summary_doc(student),
+            dataset_name=self._dataset(student),
+            node_set=["progress"], self_improvement=False))
+
     def _candidate_datasets(self, student: str):
         """The clean base name first, then versioned fallbacks. A dataset that was
         just forget()-ed deletes ASYNCHRONOUSLY on the tenant (observed: minutes),
@@ -783,6 +822,10 @@ class CloudProvider(DemoProvider):
                 self._active_dataset[student] = dataset
                 self._seeded.add(dataset)
                 self._ledger.mark_seeded(dataset, student, self.curriculum["domain"])
+                # add this student's current mastery snapshot so personal questions
+                # ("what has X mastered?") answer correctly, not from the generic
+                # curriculum. Additive; never blocks the seed.
+                self.refresh_cloud_memory(student)
                 return
             except Exception as err:
                 last_err = err
@@ -860,6 +903,8 @@ class CloudProvider(DemoProvider):
                 f"{student} is now ready to learn the concepts it unlocks.",
                 dataset_name=self._dataset(student),
                 node_set=["mastery-trace"]))
+            # keep the personal progress snapshot current for console Q&A
+            self.refresh_cloud_memory(student)
         return res
 
     def retire(self, student: str, concept: str) -> dict:
