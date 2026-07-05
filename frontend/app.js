@@ -248,7 +248,7 @@ async function generateReport() {
     const r = await api(`/api/student/report?student=${who}`);
     body.textContent = r.report;
     sub.textContent = r.cloud
-      ? "☁ Generated live from " + who + "'s Cognee Cloud memory via recall()."
+      ? "Generated live from " + who + "'s Cognee Cloud memory via recall()."
       : "Generated from " + who + "'s mastery state (demo mode).";
     log(`<b>report card</b> generated for ${who}`, r.cloud ? "good" : "");
   } catch (err) {
@@ -1012,10 +1012,10 @@ async function init() {
     try {
       const a = await api("/api/class/ask", { method: "POST", body: JSON.stringify({ question: q }) });
       if (a.per_student && a.per_student.length) {
-        $("#class-ask-answer").innerHTML = a.per_student
-          .map((p) => `<b>${escapeHtml(p.student)}:</b> ${escapeHtml(p.text)}`).join("<br><br>");
+        $("#class-ask-answer").innerHTML = renderClassRecall(a.per_student
+          .map((p) => `**${p.student}** - ${p.text}`).join("\n"));
       } else {
-        $("#class-ask-answer").textContent = a.answer;
+        $("#class-ask-answer").innerHTML = renderClassRecall(a.answer);
       }
       $("#class-ask-source").textContent = a.cloud ? "cognee cloud" : "local";
     } catch (err) {
@@ -1084,6 +1084,58 @@ async function init() {
 }
 
 init();
+
+function renderClassRecall(text) {
+  const groups = [];
+  let current = null;
+
+  String(text || "").split(/\r?\n/).forEach((raw) => {
+    const line = raw.trim();
+    if (!line) return;
+
+    const heading = line.match(/^\*\*(.+?)\*\*:?$/);
+    if (heading && !current) {
+      groups.push({ type: "heading", title: heading[1], body: "" });
+      return;
+    }
+
+    const bullet = line.match(/^[-*]\s+(.*)$/);
+    const content = bullet ? bullet[1].trim() : line;
+    const student = content.match(/^\*\*(.+?)\*\*\s*[-:]\s*(.*)$/);
+
+    if (student) {
+      current = { type: "student", title: student[1], body: student[2] };
+      groups.push(current);
+      return;
+    }
+
+    if (bullet) {
+      groups.push({ type: "bullet", title: "", body: content });
+      current = null;
+      return;
+    }
+
+    if (current) current.body += (current.body ? " " : "") + content;
+    else groups.push({ type: "paragraph", title: "", body: content });
+  });
+
+  if (!groups.length) return `<div class="recall-empty">No class memory answer returned yet.</div>`;
+
+  return groups.map((item) => {
+    if (item.type === "heading") return `<div class="recall-heading">${inlineFormat(item.title)}</div>`;
+    if (item.type === "student") {
+      return `<article class="recall-student"><h4>${escapeHtml(item.title)}</h4><p>${inlineFormat(item.body)}</p></article>`;
+    }
+    if (item.type === "bullet") return `<article class="recall-note">${inlineFormat(item.body)}</article>`;
+    return `<p class="recall-paragraph">${inlineFormat(item.body)}</p>`;
+  }).join("");
+}
+
+function inlineFormat(value) {
+  return escapeHtml(value)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (ch) => ({

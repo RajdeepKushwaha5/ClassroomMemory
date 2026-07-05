@@ -584,14 +584,21 @@ class DemoProvider(ClassroomProvider):
             ready, blocked = [], []
             for sid, state in sorted(self._states.items()):
                 v = self._view_concept(cid, state[cid], offset_days)
-                if v["band"] == "red" or v["rusty"]:
+                # only genuinely-red students need this concept TAUGHT. A rusty
+                # concept was mastered and faded: that is review (assign-review),
+                # not teaching, so it must not inflate the plan toward old basics.
+                if v["band"] == "red":
                     if all(state[r]["weight"] >= RED_MAX for r in c["requires"]):
                         ready.append(sid)
                     else:
                         blocked.append(sid)
             unlocks = downstream[cid]
+            # a concept is worth teaching when students are ready and stuck on it
+            # AND it unlocks a lot downstream. This keeps the plan on foundational,
+            # high-leverage concepts and away from advanced gaps students are not
+            # ready for.
             score = len(ready) * (1 + unlocks)
-            if score <= 0:
+            if not ready:
                 continue
             prereq_names = [self.concepts[r]["name"] for r in c["requires"]]
             unlock_names = [
@@ -627,9 +634,24 @@ class DemoProvider(ClassroomProvider):
         if plan:
             top = plan[0]
             after = ", ".join(p["name"] for p in plan[1:3])
+            # the concept the MOST students are failing (the obvious, often-wrong pick)
+            worst_id, worst_reds = None, -1
+            for cid in self.concepts:
+                reds = sum(1 for st in self._states.values()
+                           if band(st[cid]["weight"]) == "red")
+                if reds > worst_reds:
+                    worst_id, worst_reds = cid, reds
+            contrast = ""
+            if worst_id and worst_id != top["concept"] and worst_reds > 0:
+                contrast = (
+                    f" The class is failing {self.concepts[worst_id]['name']} the "
+                    f"hardest, but most of them are not ready for it yet, so this "
+                    f"teaches the foundation that unblocks it."
+                )
+            # a decision, not a suggestion: lead with the command, then defend it
             headline = (
-                f"Teach {top['name']} next. {top['reason']}"
-                + (f" Then move to {after}." if after else "")
+                f"This week, teach {top['name']}. {top['reason']}{contrast}"
+                + (f" After that: {after}." if after else "")
             )
         return {"plan": plan, "headline": headline, "class_size": n}
 

@@ -1,6 +1,16 @@
 # Classroom Memory
 
+> Content apps give a class a syllabus. Cognee gives it a memory. Classroom Memory gives the teacher a plan.
+
 Classroom Memory is a Cognee Cloud-powered classroom memory layer. It gives every student an isolated long-term memory, adaptive mastery graph, personal recall surface, and report card. It gives the teacher a class-level memory map that reads across all students, identifies the next concept to teach, and turns class-wide gaps into assigned interventions.
+
+Most tools stop at showing you the gaps. This one reasons over the class memory and makes the decision:
+
+> Instead of "the class is failing recursion," Classroom Memory says: "This week, teach functions. The class is failing recursion the hardest, but they are not ready for it yet. Functions is the foundation that unblocks it, and it opens up thirteen more concepts."
+
+That is the difference between a dashboard and a memory that reasons.
+
+By the numbers, on the live tenant: **12 private student memories, one dense class graph of roughly 290 relationship edges, a 22-concept prerequisite graph, and a 12-check verification that runs the full Cognee Cloud lifecycle against the real tenant.**
 
 The project was built for Track B, Best Use of Cognee Cloud. It is designed as a working product prototype rather than a scripted demo: it has durable state, class setup, student enrollment, curriculum import, live cloud verification, and a teacher workflow that can be used end to end.
 

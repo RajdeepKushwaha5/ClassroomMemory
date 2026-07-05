@@ -3466,7 +3466,7 @@ h4,
 }
 
 .diag-summary div {
-  min-height: 116px;
+  min-height: 132px;
   padding: 22px;
   border-right: 1px solid var(--line);
 }
@@ -3727,7 +3727,7 @@ h4,
 
 .diag-loop {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-top: 1px solid var(--line);
 }
 
@@ -3735,11 +3735,17 @@ h4,
   min-height: 120px;
   padding: 22px;
   border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 86%, transparent);
 }
 
 .diag-loop div:last-child {
   border-right: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.diag-loop div:nth-last-child(-n + 3) {
+  border-bottom: 0;
 }
 
 #teacher-view .workbench.two {
@@ -3794,10 +3800,125 @@ h4,
 
 #teacher-view #class-ask-card {
   border-top: 1px solid var(--line) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 120px),
+    color-mix(in srgb, var(--panel) 86%, var(--paper));
 }
 
 #teacher-view #class-ask-answer {
-  max-height: 260px;
+  max-height: 440px;
+  min-height: 180px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.7;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) color-mix(in srgb, var(--panel) 86%, transparent);
+}
+
+#teacher-view #class-ask-answer::-webkit-scrollbar,
+#teacher-view .intervention-card::-webkit-scrollbar,
+.modal-card::-webkit-scrollbar,
+.report-body::-webkit-scrollbar,
+#curriculum-json::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#teacher-view #class-ask-answer::-webkit-scrollbar-track,
+#teacher-view .intervention-card::-webkit-scrollbar-track,
+.modal-card::-webkit-scrollbar-track,
+.report-body::-webkit-scrollbar-track,
+#curriculum-json::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+#teacher-view #class-ask-answer::-webkit-scrollbar-thumb,
+#teacher-view .intervention-card::-webkit-scrollbar-thumb,
+.modal-card::-webkit-scrollbar-thumb,
+.report-body::-webkit-scrollbar-thumb,
+#curriculum-json::-webkit-scrollbar-thumb {
+  border: 2px solid color-mix(in srgb, var(--panel) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 72%, var(--line-strong));
+}
+
+#teacher-view #class-ask-answer::-webkit-scrollbar-thumb:hover,
+#teacher-view .intervention-card::-webkit-scrollbar-thumb:hover,
+.modal-card::-webkit-scrollbar-thumb:hover,
+.report-body::-webkit-scrollbar-thumb:hover,
+#curriculum-json::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.recall-heading {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.recall-student,
+.recall-note,
+.recall-paragraph {
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+  padding: 15px 16px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+.recall-student {
+  display: grid;
+  grid-template-columns: minmax(90px, .16fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.recall-student h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.recall-student h4::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  background: var(--good);
+}
+
+.recall-student p,
+.recall-paragraph {
+  color: var(--text);
+}
+
+.recall-student p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.recall-note {
+  border-left: 3px solid var(--accent);
+  color: var(--text);
+}
+
+.recall-empty {
+  color: var(--muted);
+}
+
+.recall-student strong,
+.recall-note strong,
+.recall-paragraph strong {
+  color: var(--text);
+}
 }
 
 #teacher-view .teach-next {
@@ -4234,10 +4355,82 @@ h4,
 .tl-row.bad .tl-what { color: #b89355; }
 
 /* ---------- report card body ---------- */
+#report-modal .modal-card {
+  width: min(760px, 94vw);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 160px),
+    var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
+}
+
+#report-modal .modal-head {
+  padding: 22px 24px;
+}
+
+#report-modal .modal-head h3 {
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: 0;
+}
+
+#report-modal .modal-sub {
+  margin: 0 24px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  padding: 14px 16px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  font-size: 14px;
+}
+
 .report-body {
-  padding: 4px 2px;
-  font-size: 14.5px;
-  line-height: 1.7;
+  max-height: min(52vh, 520px);
+  margin: 18px 24px 24px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  padding: 20px 22px;
   color: var(--text);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  font-size: clamp(16px, 1.7vw, 19px);
+  font-weight: 600;
+  line-height: 1.75;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) color-mix(in srgb, var(--panel) 86%, transparent);
+}
+
+.proof-grid img,
+.agent-proof img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  filter: saturate(.9) contrast(1.04);
+}
+
+.proof-grid figure,
+.agent-proof figure {
+  margin: 0;
+}
+
+.proof-grid figcaption,
+.agent-proof figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .recall-student {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #report-modal .modal-sub,
+  .report-body {
+    margin-inline: 16px;
+  }
 }

@@ -46,9 +46,9 @@
           <div class="hero-copy">
             <p class="overline">track b / best use of cognee cloud</p>
             <h1><span>Every student.</span> <strong>One memory.</strong> <em>A school that remembers.</em></h1>
-            <p class="hero-text">Teachers cannot track every learner's mastery from memory alone. Classroom Memory gives
-              each student an isolated Cognee Cloud memory, quizzes them at the right frontier, and shows teachers
-              where the class is forgetting, live.</p>
+            <p class="hero-text">Content apps give a class a syllabus. Cognee gives it a memory. Classroom Memory
+              gives the teacher a plan. Each student gets a private Cognee Cloud memory; the teacher reads across all
+              of them and gets told what to teach next, and why.</p>
             <div class="hero-actions">
               <button id="hero-start" class="primary-btn"><span>start a quiz</span><i
                   data-lucide="arrow-right"></i></button>
@@ -408,16 +408,16 @@
             <p class="overline">functional architecture</p>
             <h2><span>every student.</span> one Cognee Cloud tenant.</h2>
             <p>The browser holds zero learning state. The backend scores mastery and walks the curriculum graph.
-              Cognee Cloud stores the long-term curriculum memory, recall surface, per-student datasets, and learning
-              traces; the server ledger keeps exact mastery weights until Cloud improve is available remotely.</p>
+              SQLite keeps the exact classroom ledger, while Cognee Cloud stores long-term student memory, class memory,
+              recall surfaces, learning traces, and teacher interventions.</p>
           </div>
 
           <div class="premium-diagram data-flow-diagram">
             <div class="diag-summary">
-              <div><b>1. act</b><span>student answers, asks, resets, or teacher assigns review</span></div>
-              <div><b>2. score</b><span>FastAPI walks the prerequisite graph and updates mastery</span></div>
-              <div><b>3. remember</b><span>Cognee Cloud stores curriculum, traces, recall, and interventions</span></div>
-              <div><b>4. return</b><span>the UI receives the next step, graph state, and provenance</span></div>
+              <div><b>1. act</b><span>students answer, ask, reset, enroll, import curriculum; teachers ask, plan, assign</span></div>
+              <div><b>2. reason</b><span>FastAPI validates input, walks prerequisites, scores mastery, and ranks teaching priorities</span></div>
+              <div><b>3. remember</b><span>SQLite stores exact state; Cognee stores student memory, class graph, sessions, traces</span></div>
+              <div><b>4. return</b><span>UI receives graph state, next step, reports, class plan, answer sources, and provenance</span></div>
             </div>
 
             <div class="flow-map" aria-label="Classroom Memory data flow">
@@ -427,16 +427,18 @@
                   <div class="diag-icon"><i data-lucide="monitor"></i></div>
                   <div class="diag-info">
                     <h4>Student + teacher UI</h4>
-                    <p>Quiz answers, ask-memory questions, student enrollment, curriculum import, class heat map, and
-                      teacher review assignment.</p>
-                    <div class="diag-badges"><span>no browser state</span><span>vis-network</span></div>
+                    <p>Student mastery, quiz, ask box, report card, timeline, graph inspector, class ask, teaching
+                      plan, roster setup, curriculum import, and review assignment.</p>
+                    <div class="diag-badges">
+                      <span>no browser state</span><span>vis-network</span><span>student page</span><span>teacher page</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div class="flow-edge edge-rest">
                 <b>REST API</b>
-                <span>/quiz · /ask · /student · /class · /teacher</span>
+                <span>/quiz · /ask · /student · /class · /teacher · /curriculum</span>
               </div>
 
               <div class="flow-node api-node">
@@ -444,10 +446,12 @@
                 <div class="diag-box glow-orange core-card">
                   <div class="diag-icon"><i data-lucide="route"></i></div>
                   <div class="diag-info">
-                    <h4>Provider + frontier engine</h4>
-                    <p>Validates inputs, walks prerequisites, scores mastery, chooses next concepts, and keeps demo and
-                      cloud modes behind one response shape.</p>
-                    <div class="mini-endpoints">app.py -> DemoProvider / CloudProvider</div>
+                    <h4>Provider + graph reasoning engine</h4>
+                    <p>Validates requests, selects frontier concepts, scores quiz answers, builds report data,
+                      ranks graph-reasoned teaching plans, and keeps demo/cloud modes behind one response shape.</p>
+                    <div class="diag-badges">
+                      <span>app.py</span><span>DemoProvider</span><span>CloudProvider</span><span>async SDK bridge</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -455,11 +459,11 @@
               <div class="flow-split">
                 <div class="flow-edge edge-ledger">
                   <b>exact mastery state</b>
-                  <span>weights, students, interventions</span>
+                  <span>weights, timestamps, rosters, seeded datasets, interventions</span>
                 </div>
                 <div class="flow-edge edge-cloud">
                   <b>Cognee memory ops</b>
-                  <span>serve · remember · recall · forget</span>
+                  <span>serve · remember · recall · session memory · node sets · forget</span>
                 </div>
               </div>
 
@@ -469,8 +473,11 @@
                   <div class="diag-icon"><i data-lucide="table-2"></i></div>
                   <div class="diag-info">
                     <h4>Mastery ledger</h4>
-                    <p>Durable exact weights for every student and concept, plus assigned teacher interventions.</p>
-                    <div class="diag-badges"><span>mastery_ledger.sqlite</span><span>portable</span></div>
+                    <p>Durable exact state for the classroom: students, concept weights, update timestamps, retired
+                      flags, seeded datasets, tenant metadata, and intervention assignments.</p>
+                    <div class="diag-badges">
+                      <span>mastery_ledger.sqlite</span><span>students</span><span>mastery</span><span>interventions</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -481,16 +488,19 @@
                   <div class="diag-icon"><i data-lucide="cloud"></i></div>
                   <div class="diag-info">
                     <h4>Hosted classroom memory</h4>
-                    <p>Per-student datasets hold curriculum memory and mastery traces. Teacher actions write to
-                      <code>class_interventions</code>.</p>
-                    <div class="diag-badges"><span>student_alice</span><span>mastery-trace</span><span>teacher-intervention</span></div>
+                    <p>Cognee stores private student datasets, a dense class graph, session-memory quiz attempts,
+                      progress snapshots, report-card recall context, and teacher intervention memory.</p>
+                    <div class="diag-badges">
+                      <span>student_alice</span><span>class_graph</span><span>class_interventions</span>
+                      <span>curriculum</span><span>progress</span><span>mastery-trace</span><span>teaching-plan</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div class="flow-edge edge-return">
                 <b>response back to UI</b>
-                <span>next step, graph colors, answer sources, class gaps</span>
+                <span>next step, graph colors, reports, teaching plan, answer sources, class gaps, provenance</span>
               </div>
 
               <div class="flow-node output-node">
@@ -499,18 +509,24 @@
                   <div class="diag-icon"><i data-lucide="check-circle-2"></i></div>
                   <div class="diag-info">
                     <h4>What changes for users</h4>
-                    <p>The student sees what to learn next. The teacher sees who is red or rusty and can assign targeted
-                      review to the affected students.</p>
-                    <div class="diag-badges"><span>student graph</span><span>teacher heat map</span><span>review list</span></div>
+                    <p>Students see what to learn next and why. Teachers see the class heat map, a graph-reasoned
+                      lesson plan, targeted review lists, and per-student drill-down.</p>
+                    <div class="diag-badges">
+                      <span>student graph</span><span>timeline</span><span>report card</span><span>teacher plan</span>
+                      <span>class heat map</span><span>review list</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div class="diag-loop">
-              <div><b>quiz answer</b><span>FastAPI updates SQLite weights and recolors the graph</span></div>
-              <div><b>ask memory</b><span>Cognee recall reads the right student dataset and returns provenance</span></div>
-              <div><b>assign review</b><span>teacher action writes an intervention locally and to Cognee Cloud</span></div>
+              <div><b>quiz answer</b><span>FastAPI updates SQLite weights, writes session memory, and emits mastery traces when concepts turn green</span></div>
+              <div><b>student ask + report</b><span>Cognee recall reads the student's dataset and returns grounded answers or a report card</span></div>
+              <div><b>teaching plan</b><span>Backend ranks ready class gaps by prerequisite readiness and downstream unlock value, then writes the plan to class memory</span></div>
+              <div><b>class ask</b><span>Teacher questions use the dense <code>class_graph</code> or fall back to multi-dataset recall across student memories</span></div>
+              <div><b>assign review</b><span>Teacher action persists an intervention in SQLite and writes a teacher-intervention memory to Cognee</span></div>
+              <div><b>setup + reset</b><span>Roster setup creates fresh student memories; reset clears local state and calls Cognee <code>forget(dataset)</code></span></div>
             </div>
           </div>
         </section>
