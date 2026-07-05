@@ -1,0 +1,12 @@
+# Classroom Memory backend dependencies (used by Render).
+
+# Web layer: app.py imports these directly (pydantic comes in transitively).
+fastapi
+uvicorn[standard]
+
+# Cognee Cloud client, installed from the verified fork commit so the deployed
+# behavior is byte-identical to the locally verified build (serve / remember /
+# recall / forget). The public PyPI "cognee" is the unrelated 0.2.x line, so a
+# plain "cognee==1.2.2" will NOT resolve. The fork must be public for Render to
+# install this without credentials.
+cognee @ git+https://github.com/RajdeepKushwaha5/cognee.git@96135c086
