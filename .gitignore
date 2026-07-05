@@ -17,3 +17,6 @@ Thumbs.db
 # internal demo-prep material: keep local, never publish
 track-b-demo-video.md
 LIVE-DEMO-RUNBOOK.md
+backend/blog-trackk-b.md
+blog-*.md
+*-blog.md
