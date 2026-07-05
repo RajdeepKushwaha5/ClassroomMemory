@@ -3743,7 +3743,190 @@ h4,
 }
 
 #teacher-view .workbench.two {
-  grid-template-columns: minmax(320px, 390px) minmax(760px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding-inline: clamp(18px, 3vw, 44px);
+}
+
+#teacher-view .case-column,
+#teacher-view .graph-column {
+  width: 100%;
+}
+
+#teacher-view .case-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+#teacher-view .case-column .command-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+#teacher-view .case-column .command-panel:first-child .window-bar {
+  min-height: 64px;
+}
+
+#teacher-view .case-column .student-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+#teacher-view .case-column .student-pick code {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#teacher-view .ask-box {
+  grid-template-columns: minmax(0, 1fr) minmax(116px, auto);
+}
+
+#teacher-view #class-ask-card {
+  border-top: 1px solid var(--line) !important;
+}
+
+#teacher-view #class-ask-answer {
+  max-height: 260px;
+}
+
+#teacher-view .teach-next {
+  counter-reset: teach-next;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#teacher-view .teach-next li {
+  counter-increment: teach-next;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 82%, var(--paper));
+}
+
+#teacher-view .teach-next li:nth-child(3n) {
+  border-right: 0;
+}
+
+#teacher-view .teach-next-row {
+  min-height: 190px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 16px;
+  padding: 22px;
+}
+
+#teacher-view .teach-next-row > span {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding-left: 38px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+#teacher-view .teach-next-row > span::before {
+  content: counter(teach-next, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  color: var(--accent);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+#teacher-view .teach-next-row .pct {
+  color: var(--bad);
+}
+
+#teacher-view .teach-next-row small {
+  max-width: 100%;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.55;
+  text-transform: none;
+}
+
+#teacher-view .assign-review {
+  justify-self: start;
+  min-height: 42px;
+  border: 1px solid var(--line-strong);
+  padding: 0 18px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+#teacher-view .assign-review:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+#teacher-view .intervention-card {
+  max-height: 360px;
+  overflow: auto;
+  padding: 22px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 86%, var(--panel));
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+#teacher-view .intervention-card b,
+#teacher-view .intervention-card span {
+  display: block;
+  max-width: 920px;
+  overflow-wrap: anywhere;
+}
+
+#teacher-view .intervention-card b {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+#teacher-view .intervention-card span {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+#teacher-view .intervention-card ul {
+  columns: 2;
+  column-gap: 36px;
+  margin: 18px 0 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+#teacher-view .cockpit-students {
+  max-height: 300px;
 }
 
 #teacher-graph {
@@ -3831,6 +4014,18 @@ h4,
     grid-template-columns: 1fr;
   }
 
+  #teacher-view .teach-next {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #teacher-view .teach-next li:nth-child(3n) {
+    border-right: 1px solid var(--line);
+  }
+
+  #teacher-view .teach-next li:nth-child(2n) {
+    border-right: 0;
+  }
+
   #teacher-graph {
     height: 640px;
     min-height: 640px;
@@ -3864,8 +4059,22 @@ h4,
     gap: 8px;
   }
 
+  #teacher-view .teach-next {
+    grid-template-columns: 1fr;
+  }
+
+  #teacher-view .teach-next li,
+  #teacher-view .teach-next li:nth-child(2n),
+  #teacher-view .teach-next li:nth-child(3n) {
+    border-right: 0;
+  }
+
   .assign-review {
     width: 100%;
+  }
+
+  #teacher-view .intervention-card ul {
+    columns: 1;
   }
 
   #teacher-view .cockpit-students button {

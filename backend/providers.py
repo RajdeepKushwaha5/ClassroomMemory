@@ -707,6 +707,21 @@ class CloudProvider(DemoProvider):
     def _save_state(self):
         self._ledger.save_all(self._states)
 
+    def _seed_in_background(self, student: str):
+        """Create a student's cloud dataset without blocking the request.
+        ensure_seeded blocks (~24s), so run it on a daemon thread: enroll
+        returns instantly and the dataset appears on the tenant shortly after."""
+        if not self._connected:
+            return
+        import threading
+
+        def work():
+            try:
+                self.ensure_seeded(student)
+            except Exception as err:
+                print(f"[cloud] background seed for {student} failed: {err}")
+        threading.Thread(target=work, daemon=True).start()
+
     # ---------- cloud dataset per student ----------
 
     def _base_dataset(self, student: str) -> str:
@@ -917,22 +932,96 @@ class CloudProvider(DemoProvider):
                     dataset_name=self._dataset(student)))
         return out
 
+    # ---------- combined class dataset (one graph for the whole class) ----------
+
+    def _class_dataset(self) -> str:
+        domain = self.curriculum["domain"]
+        if domain == "python":
+            return "class_overview"
+        return f"class_overview_{re.sub(r'[^a-z0-9_-]', '_', domain.lower())}"
+
+    def _class_overview_doc(self) -> str:
+        """A concept-centric snapshot of the WHOLE class in one document, so a
+        single dataset answers 'which students are struggling with recursion?'
+        with a synthesized list instead of N separate per-student answers."""
+        title = self.curriculum["title"]
+        lines = [f"Class-wide learning overview for the course '{title}', covering "
+                 f"all {len(self._states)} students together in one class memory."]
+        for cid, c in self.concepts.items():
+            strugglers, masters = [], []
+            for sid, state in sorted(self._states.items()):
+                rec = state[cid]
+                b = band(rec["weight"])
+                if rec["retired"] or b == "green":
+                    masters.append(sid)
+                elif b == "red":
+                    strugglers.append(sid)
+            if strugglers:
+                lines.append(f"For the concept '{c['name']}', these students still "
+                             f"have a gap and need help: {', '.join(strugglers)}.")
+            if masters:
+                lines.append(f"For the concept '{c['name']}', these students have "
+                             f"already mastered it: {', '.join(masters)}.")
+        return "\n".join(lines)
+
+    def ensure_class_seeded(self):
+        ds = self._class_dataset()
+        if not self._connected or ds in self._seeded:
+            return
+        for attempt in range(2):
+            try:
+                self._call(self._cognee.remember(
+                    self._class_overview_doc(), dataset_name=ds,
+                    node_set=["class-overview", self.curriculum["domain"]]),
+                    timeout=120)
+                break
+            except Exception as err:
+                if "409" in str(err) and attempt == 0:
+                    time.sleep(8)
+                    continue
+                raise
+        self._seeded.add(ds)
+        self._ledger.mark_seeded(ds, "__class__", self.curriculum["domain"])
+
+    def refresh_class_overview(self):
+        """Additive update of the class graph after mastery changes. Safe."""
+        if not self._connected or self._class_dataset() not in self._seeded:
+            return
+        self._fire_and_forget(self._cognee.remember(
+            self._class_overview_doc(), dataset_name=self._class_dataset(),
+            node_set=["class-overview"], self_improvement=False))
+
     def class_ask(self, question: str) -> dict:
-        """The teacher's cross-student question: ONE cognee recall() spanning every
-        student's dataset (multi-dataset retrieval probed live 2026-07-04). Results
-        come back per dataset, which is exactly the per-student shape a teacher needs."""
+        """The teacher's cross-student question. Preferred path: ONE recall against
+        the combined class_overview dataset, giving a synthesized class-level answer
+        ('which students struggle with recursion' -> a single list). Falls back to
+        multi-dataset recall across the per-student datasets, then to demo."""
         if self._connected:
             try:
-                # Query ONLY already-seeded datasets: with a class-sized roster,
-                # seeding everyone here would block for minutes (~20s/student).
-                # If nothing is seeded yet, seed the three sample students once.
+                self.ensure_class_seeded()
+                res = self._call(self._cognee.recall(
+                    question, datasets=[self._class_dataset()], top_k=12),
+                    timeout=60)
+                items = res if isinstance(res, list) else [res]
+                text = next((str(i.get("text")) for i in items
+                             if isinstance(i, dict) and i.get("text")), None)
+                if text:
+                    return {"answer": text, "cloud": True, "combined": True,
+                            "dataset": self._class_dataset()}
+            except Exception as err:
+                print(f"[cloud] class-overview recall failed, trying per-student: {err}")
+        if self._connected:
+            try:
+                # fallback: multi-dataset recall across per-student datasets
                 datasets = [self._dataset(s) for s in sorted(self._states)
-                            if self._dataset(s) in self._seeded]
+                            if self._dataset(s) in self._seeded
+                            and s in self._states]
                 if not datasets:
                     for sid in ("alice", "bob", "cara"):
                         if sid in self._states:
                             self.ensure_seeded(sid)
-                    datasets = sorted(self._seeded)
+                    datasets = [self._dataset(s) for s in ("alice", "bob", "cara")
+                                if s in self._states]
                 res = self._call(self._cognee.recall(
                     question, datasets=datasets, top_k=8), timeout=60)
                 items = res if isinstance(res, list) else [res]
@@ -975,6 +1064,15 @@ class CloudProvider(DemoProvider):
         out = super().add_student(student)
         if out.get("ok"):
             self._ledger.save_student(out["student"], self._states[out["student"]])
+            # give the new student a Cloud dataset right away (background, ~24s)
+            self._seed_in_background(out["student"])
+        return out
+
+    def setup_class(self, students: list[str]) -> dict:
+        out = super().setup_class(students)
+        for sid in out.get("added", []):
+            self._ledger.save_student(sid, self._states[sid])
+            self._seed_in_background(sid)
         return out
 
     def import_curriculum(self, payload: dict) -> dict:

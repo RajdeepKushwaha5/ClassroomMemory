@@ -280,7 +280,7 @@ async function loadCockpit() {
     const b = document.createElement("button");
     if (st.id === state.student) b.classList.add("active");
     b.innerHTML = `<span class="who">${st.id}</span>` +
-      `<span class="mini">${st.mastered} mastered · ${st.gaps} gaps · avg ${(st.avg_weight * 100).toFixed(0)}%</span>`;
+      `<span class="mini">${st.mastered} mastered · ${st.gaps} gaps · ${Math.round(st.mastered / st.total * 100)}% mastered</span>`;
     b.onclick = () => {
       state.student = st.id;
       $("#student-select").value = st.id;
@@ -321,13 +321,15 @@ async function loadStudentGraph() {
   const bands = { red: 0, amber: 0, green: 0 };
   let rusty = 0;
   let total = 0;
-  let sum = 0;
   g.nodes.forEach((n) => {
     bands[n.band]++;
     if (n.rusty) rusty++;
-    if (!n.retired) { total++; sum += n.weight; }
+    if (!n.retired) total++;
   });
-  const pct = total ? Math.round((sum / total) * 100) : 0;
+  // mastery % = share of concepts actually mastered (green). A brand-new student
+  // is 0%, matching the "0 mastered" tile; it was previously average raw weight,
+  // so a fresh student (all at the 0.2 baseline) misleadingly showed 20%.
+  const pct = total ? Math.round((bands.green / total) * 100) : 0;
 
   $("#report-student").textContent = state.student;
   $("#mastery-label").textContent = `${state.student}'s mastery`;
@@ -516,7 +518,7 @@ async function loadTeacher() {
     const b = document.createElement("button");
     if (s.id === state.student) b.classList.add("active");
     b.innerHTML = `<span class="who">${s.id}</span>` +
-      `<span class="mini">${s.mastered} mastered · ${s.gaps} gaps · avg ${(s.avg_weight * 100).toFixed(0)}%</span>`;
+      `<span class="mini">${s.mastered} mastered · ${s.gaps} gaps · ${Math.round(s.mastered / s.total * 100)}% mastered</span>`;
     b.onclick = () => drillStudent(s.id);
     list.appendChild(b);
   });
