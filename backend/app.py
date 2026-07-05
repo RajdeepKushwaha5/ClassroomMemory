@@ -87,6 +87,16 @@ def student_graph(student: str, offset_days: int = 0):
     return _guard(provider.student_graph, student, offset_days)
 
 
+@app.get("/api/student/timeline")
+def student_timeline(student: str, offset_days: int = 0):
+    return _guard(provider.student_timeline, student, offset_days)
+
+
+@app.get("/api/student/report")
+def student_report(student: str):
+    return _guard(provider.student_report, student)
+
+
 @app.post("/api/quiz/next")
 def quiz_next(body: StudentBody):
     return _guard(provider.quiz_next, body.student)

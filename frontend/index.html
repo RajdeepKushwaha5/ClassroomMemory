@@ -167,7 +167,9 @@
                 <button id="ask-btn"><i data-lucide="send"></i><span>ask</span></button>
               </div>
 
-              <div class="controls">
+              <div class="controls three">
+                <button id="report-btn" class="ctl" title="Generate a report card from this student's Cloud memory"><i
+                    data-lucide="file-text"></i><span>report card</span></button>
                 <button id="retire-btn" class="ctl" title="forget() a mastered concept from active practice"><i
                     data-lucide="archive"></i><span>retire mastered</span></button>
                 <button id="reset-btn" class="ctl" title="Real forget(dataset) on Cognee Cloud"><i
@@ -233,6 +235,16 @@
                   <span>teacher assigned review</span>
                 </div>
                 <pre id="assignment-list"></pre>
+              </div>
+
+              <div class="restore-card">
+                <div class="section-title tight">
+                  <span>learning over time</span>
+                  <span id="timeline-summary" class="mini-note"></span>
+                </div>
+                <div id="learning-timeline" class="learning-timeline">
+                  <div class="tl-empty">this student's learning journey appears here.</div>
+                </div>
               </div>
 
               <div class="restore-card">
@@ -739,6 +751,17 @@
           </div>
           <p id="enroll-error" class="enroll-error hidden"></p>
         </form>
+      </section>
+    </div>
+
+    <div id="report-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="report-title">
+      <section class="modal-card enroll-card">
+        <div class="modal-head">
+          <h3 id="report-title">Progress Report</h3>
+          <button id="report-close" class="nav-button icon-only" title="Close"><i data-lucide="x"></i></button>
+        </div>
+        <p class="modal-sub" id="report-sub">Generated from the student's own Cognee Cloud memory.</p>
+        <div id="report-body" class="report-body">…</div>
       </section>
     </div>
 

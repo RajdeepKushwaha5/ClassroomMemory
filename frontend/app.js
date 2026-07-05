@@ -233,6 +233,51 @@ function showConceptDetail(nodeId) {
   $("#node-detail-card").classList.remove("hidden");
 }
 
+async function generateReport() {
+  const modal = $("#report-modal");
+  const body = $("#report-body");
+  const sub = $("#report-sub");
+  const who = state.student;
+  $("#report-title").textContent = `Progress Report — ${who}`;
+  body.textContent = "generating from " + who + "'s Cognee Cloud memory… (recall, ~7s)";
+  sub.textContent = "Generated from the student's own Cognee Cloud memory.";
+  modal.classList.remove("hidden");
+  icons();
+  lifecycle("recall");
+  try {
+    const r = await api(`/api/student/report?student=${who}`);
+    body.textContent = r.report;
+    sub.textContent = r.cloud
+      ? "☁ Generated live from " + who + "'s Cognee Cloud memory via recall()."
+      : "Generated from " + who + "'s mastery state (demo mode).";
+    log(`<b>report card</b> generated for ${who}`, r.cloud ? "good" : "");
+  } catch (err) {
+    body.textContent = "Could not generate the report. Try again.";
+  }
+}
+
+async function loadTimeline() {
+  const box = $("#learning-timeline");
+  try {
+    const t = await api(`/api/student/timeline?student=${state.student}&offset_days=${state.offsetDays}`);
+    if (!t.events.length) {
+      box.innerHTML = `<div class="tl-empty">${state.student} just started — no learning history yet. Answer some quiz questions to build the timeline.</div>`;
+      $("#timeline-summary").textContent = "";
+      return;
+    }
+    $("#timeline-summary").textContent =
+      `${t.summary.mastered} fresh · ${t.summary.rusty} rusty`;
+    box.innerHTML = t.events.map((e) =>
+      `<div class="tl-row ${e.tone}">` +
+        `<span class="tl-when">${e.when}</span>` +
+        `<span class="tl-what"><b>${escapeHtml(e.name)}</b> — ${escapeHtml(e.verb)}</span>` +
+      `</div>`
+    ).join("");
+  } catch (err) {
+    box.innerHTML = `<div class="tl-empty">timeline unavailable.</div>`;
+  }
+}
+
 function renderMemoryContents(g) {
   const health = state.health || {};
   const seededStudents = health.seeded_students || health.seeded || [];
@@ -317,6 +362,7 @@ async function loadStudentGraph() {
     },
   });
   renderMemoryContents(g);
+  loadTimeline();
 
   const bands = { red: 0, amber: 0, green: 0 };
   let rusty = 0;
@@ -754,6 +800,11 @@ async function init() {
     $("#retire-btn").onclick = retireMastered;
     $("#reset-btn").onclick = resetStudent;
     $("#node-detail-close").onclick = () => $("#node-detail-card").classList.add("hidden");
+    $("#report-btn").onclick = generateReport;
+    $("#report-close").onclick = () => $("#report-modal").classList.add("hidden");
+    $("#report-modal").addEventListener("click", (e) => {
+      if (e.target === $("#report-modal")) $("#report-modal").classList.add("hidden");
+    });
   });
 
   safely("lifecycle-strip", () => {

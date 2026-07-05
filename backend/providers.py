@@ -129,6 +129,8 @@ class ClassroomProvider:
     def health(self) -> dict: ...
     def students(self) -> dict: ...
     def student_graph(self, student: str, offset_days: int = 0) -> dict: ...
+    def student_timeline(self, student: str, offset_days: int = 0) -> dict: ...
+    def student_report(self, student: str) -> dict: ...
     def quiz_next(self, student: str) -> dict: ...
     def quiz_answer(self, student: str, concept: str, answer_index: int) -> dict: ...
     def class_heatmap(self, offset_days: int = 0) -> dict: ...
@@ -220,6 +222,29 @@ class DemoProvider(ClassroomProvider):
             if "recursion" in st:
                 st["recursion"]["weight"] = round(0.18 + (i % 3) * 0.05, 2)
             self._states[sid] = st
+
+        # give every seeded student a believable LEARNING HISTORY: spread each
+        # concept's last-practiced time across the term by curriculum position, so
+        # the timeline reads like a real journey (early concepts learned long ago;
+        # long-untouched mastered concepts show up as "now rusty" = forgetting).
+        for sid in self._states:
+            self._spread_timeline(self._states[sid])
+
+    def _spread_timeline(self, state: dict, term_days: int = 70):
+        order = list(self.concepts)
+        span = max(1, len(order) - 1)
+        now = now_ms()
+        for i, cid in enumerate(order):
+            rec = state[cid]
+            b = band(rec["weight"])
+            if b == "green":
+                # mastered: earlier curriculum concepts were mastered longer ago
+                days_ago = round(term_days * (1 - i / span) * 0.85) + 4
+            elif b == "amber":
+                days_ago = 3 + (i % 4)          # currently being worked on
+            else:
+                continue                        # red / not started: leave as fresh
+            rec["updated_at"] = now - days_ago * DAY_MS
 
     # ---------- core reads ----------
 
@@ -343,6 +368,77 @@ class DemoProvider(ClassroomProvider):
                 "answers": len(session.get("answers", [])),
             },
         }
+
+    def _rel_time(self, days: float) -> str:
+        if days < 1:
+            return "today"
+        if days < 2:
+            return "yesterday"
+        if days < 21:
+            return f"{round(days)} days ago"
+        if days < 60:
+            return f"{round(days / 7)} weeks ago"
+        return f"{round(days / 30)} months ago"
+
+    def student_timeline(self, student: str, offset_days: int = 0) -> dict:
+        """The student's learning over time, reconstructed from when each concept
+        was last practiced. Mastered-but-long-untouched concepts read as 'now
+        rusty' -- the forgetting story the hackathon theme is about."""
+        state = self._require(student)
+        events = []
+        for cid, rec in state.items():
+            v = self._view_concept(cid, rec, offset_days)
+            if v["band"] == "red" and not v["retired"]:
+                continue  # never engaged: no history event
+            if v["retired"]:
+                verb, tone = "retired from active practice", "muted"
+            elif v["rusty"]:
+                verb, tone = "mastered, but let it fade (now rusty)", "bad"
+            elif v["band"] == "green":
+                verb, tone = "mastered", "good"
+            else:
+                verb, tone = "started learning", "amber"
+            events.append({
+                "concept": cid, "name": v["name"], "band": v["band"],
+                "rusty": v["rusty"], "retired": v["retired"],
+                "age_days": v["age_days"], "when": self._rel_time(v["age_days"]),
+                "verb": verb, "tone": tone,
+            })
+        events.sort(key=lambda e: -e["age_days"])  # oldest first = a journey
+        mastered = sum(1 for e in events if e["band"] == "green" and not e["rusty"])
+        rusty = sum(1 for e in events if e["rusty"])
+        return {"student": student, "events": events, "offset_days": offset_days,
+                "summary": {"mastered": mastered, "rusty": rusty,
+                            "engaged": len(events)}}
+
+    def student_report(self, student: str) -> dict:
+        """A parent-ready narrative summary. Demo mode builds it deterministically;
+        CloudProvider overrides with a real recall() against the student's dataset."""
+        state = self._require(student)
+        mastered = [self.concepts[c]["name"] for c, r in state.items()
+                    if r["retired"] or band(r["weight"]) == "green"]
+        learning = [self.concepts[c]["name"] for c, r in state.items()
+                    if band(r["weight"]) == "amber"]
+        gaps = [self.concepts[c]["name"] for c, r in state.items()
+                if band(r["weight"]) == "red" and not r["retired"]]
+        frontier = self._frontier(student)
+        nxt = self.concepts[frontier[0]]["name"] if frontier else None
+        parts = []
+        if mastered:
+            parts.append(f"{student} has mastered {len(mastered)} concept"
+                         f"{'s' if len(mastered) != 1 else ''}, including "
+                         f"{', '.join(mastered[:5])}.")
+        else:
+            parts.append(f"{student} is just getting started and has not "
+                         f"mastered any concepts yet.")
+        if learning:
+            parts.append(f"They are currently working through "
+                         f"{', '.join(learning[:4])}.")
+        if nxt:
+            parts.append(f"They are ready to learn {nxt} next.")
+        if gaps:
+            parts.append(f"The main gaps to focus on are {', '.join(gaps[:4])}.")
+        return {"student": student, "report": " ".join(parts), "cloud": False}
 
     # ---------- frontier + quiz ----------
 
@@ -975,6 +1071,28 @@ class CloudProvider(DemoProvider):
         out = super().ask(student, question)
         out["cloud"] = False
         return out
+
+    def student_report(self, student: str) -> dict:
+        """Generate the report card from the student's OWN Cloud memory via recall,
+        so it is a real narrative pulled from their graph, not a template."""
+        self._require(student)
+        if self._connected:
+            try:
+                self.ensure_seeded(student)
+                res = self._call(self._cognee.recall(
+                    f"Write a short progress report for the student {student} for a "
+                    f"parent-teacher meeting. Say what {student} has already mastered, "
+                    f"what they are ready to learn next, and where they still have "
+                    f"gaps. Keep it to three or four encouraging sentences.",
+                    datasets=[self._dataset(student)]), timeout=45)
+                items = res if isinstance(res, list) else [res]
+                text = next((str(i.get("text")) for i in items
+                             if isinstance(i, dict) and i.get("text")), None)
+                if text and len(text) > 40:
+                    return {"student": student, "report": text, "cloud": True}
+            except Exception as err:
+                print(f"[cloud] report recall failed, using local summary: {err}")
+        return super().student_report(student)
 
     def quiz_answer(self, student: str, concept: str, answer_index: int) -> dict:
         res = super().quiz_answer(student, concept, answer_index)
